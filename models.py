@@ -1,5 +1,5 @@
 from db import Base
-from sqlalchemy import Column, Integer, String, Text, Date, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, Text, Date, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship
 import datetime
 
@@ -7,6 +7,12 @@ post_tag = Table(
     'post_tag', Base.metadata,
     Column("post_id", Integer, ForeignKey("post.id")),
     Column("tag_id", Integer, ForeignKey("tag.id"))
+)
+
+post_category = Table(
+    'post_category', Base.metadata,
+    Column("post_id", Integer, ForeignKey("post.id")),
+    Column("category_id", Integer, ForeignKey("category.id"))
 )
 
 class User(Base):
@@ -57,3 +63,17 @@ class Menu(Base):
     title = Column(String(64))
     path = Column(String(128), nullable=True)
     url = Column(String(256), nullable=True)
+
+class Comment(Base):
+    __tablename__ = "comment"
+    id = Column(Integer, primary_key=True)
+    post_id = Column(Integer, ForeignKey("post.id"), nullable=False)
+    post = relationship("Post", backref="comments")
+    parent_id = Column(Integer, ForeignKey("comment.id"), nullable=True)
+    parent = relationship("Comment", remote_side=[id], backref="replies")
+    author_name = Column(String(128), nullable=False)
+    author_email = Column(String(256), nullable=True)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=True)
+    user = relationship("User")
