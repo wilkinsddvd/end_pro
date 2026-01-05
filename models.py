@@ -9,12 +9,6 @@ post_tag = Table(
     Column("tag_id", Integer, ForeignKey("tag.id"))
 )
 
-post_category = Table(
-    'post_category', Base.metadata,
-    Column("post_id", Integer, ForeignKey("post.id")),
-    Column("category_id", Integer, ForeignKey("category.id"))
-)
-
 class User(Base):
     __tablename__ = "user"
     id = Column(Integer, primary_key=True)

@@ -1,12 +1,23 @@
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from api import posts, categories, tags, archive, siteinfo, menus, auth, interaction, comments
 from fastapi.responses import JSONResponse
 from db import engine, Base
+from config import API_TITLE, API_DESCRIPTION, API_VERSION, ALLOWED_ORIGINS
 
 app = FastAPI(
-    title="Blog API",
-    description="RESTful API for blog system with JWT authentication",
-    version="1.0.0"
+    title=API_TITLE,
+    description=API_DESCRIPTION,
+    version=API_VERSION
+)
+
+# Add CORS middleware for frontend compatibility
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.on_event("startup")
