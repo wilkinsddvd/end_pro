@@ -32,7 +32,7 @@ async def register(data: dict = Body(...), db: AsyncSession = Depends(get_async_
         return JSONResponse(content={"code":400,"data":{},"msg":"username/password required"})
     exists = await db.execute(select(User).where(User.username == username))
     if exists.scalar():
-        return JSONResponse(content={"code":409,"data":{},"msg":"username taken"})
+        return JSONResponse(content={"code":409,"data":{},"msg":"username was taken"})
     user = User(username=username, password_hash=hash_pwd(password))
     db.add(user)
     await db.commit()

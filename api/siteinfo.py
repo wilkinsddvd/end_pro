@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import SiteInfo
 from db import get_async_db
+from sqlalchemy import func, select
 from fastapi.responses import JSONResponse
 
 router = APIRouter()
