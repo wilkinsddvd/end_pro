@@ -6,7 +6,7 @@ from models import Comment, Post, User
 from schemas import CommentCreate, CommentOut
 from db import get_async_db
 from fastapi.responses import JSONResponse
-from utils.dependencies import get_current_user
+from utils.dependencies import get_current_user, require_current_user
 from typing import Optional, List
 
 router = APIRouter()
@@ -147,17 +147,11 @@ async def create_comment(
 @router.delete("/comments/{id}")
 async def delete_comment(
     id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_current_user),
     db: AsyncSession = Depends(get_async_db)
 ):
     """Delete a comment (only for comment author or admin)"""
     try:
-        if not current_user:
-            return JSONResponse(
-                status_code=401,
-                content={"code": 401, "data": {}, "msg": "not authenticated"}
-            )
-        
         result = await db.execute(select(Comment).where(Comment.id == id))
         comment = result.scalar_one_or_none()
         

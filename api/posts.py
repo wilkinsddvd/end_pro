@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func
 from models import Post, Category, Tag, User
 from schemas import PostOut, PostCreate, PostUpdate
 from db import get_async_db
@@ -33,24 +34,39 @@ async def list_posts(
         )
         
         # Apply filters
+        filters = []
         if search:
-            stmt = stmt.where(
+            filters.append(
                 Post.title.contains(search) | 
                 Post.summary.contains(search) | 
                 Post.content.contains(search)
             )
         if category:
-            stmt = stmt.join(Category).where(Category.name == category)
+            stmt = stmt.join(Category)
+            filters.append(Category.name == category)
         if tag:
-            stmt = stmt.join(Post.tags).where(Tag.name == tag)
+            stmt = stmt.join(Post.tags)
+            filters.append(Tag.name == tag)
         if date:
-            stmt = stmt.where(Post.date == date)
+            filters.append(Post.date == date)
+        
+        # Apply all filters
+        for filter_clause in filters:
+            stmt = stmt.where(filter_clause)
         
         stmt = stmt.order_by(Post.date.desc())
 
-        # Get total count
-        count_result = await db.execute(select(Post).where(stmt.whereclause) if stmt.whereclause else select(Post))
-        total_count = len(count_result.scalars().all())
+        # Get total count efficiently
+        count_stmt = select(func.count(Post.id))
+        for filter_clause in filters:
+            count_stmt = count_stmt.where(filter_clause)
+        if category:
+            count_stmt = count_stmt.join(Category).where(Category.name == category)
+        if tag:
+            count_stmt = count_stmt.join(Post.tags).where(Tag.name == tag)
+        
+        count_result = await db.execute(count_stmt)
+        total_count = count_result.scalar()
         
         # Apply pagination
         stmt = stmt.offset((page - 1) * size).limit(size)

@@ -1,7 +1,7 @@
 from db import Base
 from sqlalchemy import Column, Integer, String, Text, Date, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship
-import datetime
+from datetime import date, datetime, timezone
 
 post_tag = Table(
     'post_tag', Base.metadata,
@@ -14,7 +14,7 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(128), unique=True, index=True)
     password_hash = Column(String(256))
-    created_at = Column(Date, default=datetime.date.today)
+    created_at = Column(Date, default=date.today)
 
 class Post(Base):
     __tablename__ = "post"
@@ -25,7 +25,7 @@ class Post(Base):
     category_id = Column(Integer, ForeignKey("category.id"))
     category = relationship("Category", back_populates="posts")
     tags = relationship("Tag", secondary=post_tag, back_populates="posts")
-    date = Column(Date, default=datetime.date.today)
+    date = Column(Date, default=date.today)
     author_id = Column(Integer, ForeignKey("user.id"))
     author = relationship("User")
     views = Column(Integer, default=0)
@@ -68,6 +68,6 @@ class Comment(Base):
     author_name = Column(String(128), nullable=False)
     author_email = Column(String(256), nullable=True)
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     user_id = Column(Integer, ForeignKey("user.id"), nullable=True)
     user = relationship("User")
