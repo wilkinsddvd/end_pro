@@ -2,6 +2,12 @@
 
 A comprehensive FastAPI + MySQL async backend for a blog system with JWT authentication.
 
+## 📚 Documentation
+
+- **[Quick Start Guide](QUICKSTART.md)** - Get up and running in 5 minutes
+- **[Deployment Guide](DEPLOYMENT.md)** - Production deployment instructions
+- **[API Documentation](#api-documentation)** - Detailed API reference below
+
 ## Features
 
 - **RESTful API Design**: All endpoints return a standard `{code, data, msg}` format
@@ -44,6 +50,8 @@ A comprehensive FastAPI + MySQL async backend for a blog system with JWT authent
 
 ## Installation
 
+See the [Quick Start Guide](QUICKSTART.md) for a fast setup, or follow these detailed steps:
+
 1. Install dependencies:
 ```bash
 pip install -r requirements.txt
@@ -60,6 +68,16 @@ uvicorn main:app --reload
 ```
 
 The API will be available at `http://localhost:8000`
+
+### Seed Test Data (Optional)
+
+To populate the database with sample data:
+
+```bash
+python seed_data.py
+```
+
+This creates an admin user (username: `admin`, password: `admin123`) and sample posts, categories, tags, etc.
 
 ## API Documentation
 
@@ -180,6 +198,18 @@ The application uses:
 - Pydantic v2 for data validation
 - python-jose for JWT handling
 - passlib for password hashing
+
+### Validation
+
+Run the validation script to check your setup:
+
+```bash
+python validate.py
+```
+
+## Production Deployment
+
+For production deployment instructions, see the [Deployment Guide](DEPLOYMENT.md).
 
 ## License
 
