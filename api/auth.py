@@ -1,50 +1,119 @@
-from fastapi import APIRouter, Depends, Body
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from models import User
+from schemas import UserRegister, UserLogin, TokenResponse, UserOut
 from db import get_async_db
 from fastapi.responses import JSONResponse
-import hashlib
+from utils.auth import get_password_hash, verify_password, create_access_token
+from utils.dependencies import get_current_user
 
 router = APIRouter()
 
-def hash_pwd(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+@router.post("/register")
+async def register(user_data: UserRegister, db: AsyncSession = Depends(get_async_db)):
+    """Register a new user"""
+    try:
+        # Check if username already exists
+        result = await db.execute(select(User).where(User.username == user_data.username))
+        existing_user = result.scalar_one_or_none()
+        
+        if existing_user:
+            return JSONResponse(
+                status_code=409,
+                content={"code": 409, "data": {}, "msg": "username already exists"}
+            )
+        
+        # Create new user
+        hashed_password = get_password_hash(user_data.password)
+        user = User(username=user_data.username, password_hash=hashed_password)
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        
+        # Generate token
+        token = create_access_token(data={"sub": str(user.id)})
+        
+        return JSONResponse(
+            status_code=201,
+            content={
+                "code": 201,
+                "data": {
+                    "token": token,
+                    "user": {"id": user.id, "username": user.username}
+                },
+                "msg": "register success"
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"code": 500, "data": {}, "msg": str(e)}
+        )
 
 @router.post("/login")
-async def login(data: dict = Body(...), db: AsyncSession = Depends(get_async_db)):
-    username = data.get("username")
-    password = data.get("password")
-    if not username or not password:
-        return JSONResponse(content={"code":400,"data":{},"msg":"username/password required"})
-    result = await db.execute(select(User).where(User.username == username))
-    user = result.scalar()
-    if not user or user.password_hash != hash_pwd(password):
-        return JSONResponse(content={"code":401,"data":{},"msg":"invalid credentials"})
-    # 此处应生成 JWT，简化为 user_id 返回
-    return JSONResponse(content={"code":200,"data":{"id":user.id,"username":user.username},"msg":"login success"})
-
-@router.post("/register")
-async def register(data: dict = Body(...), db: AsyncSession = Depends(get_async_db)):
-    username = data.get("username")
-    password = data.get("password")
-    if not username or not password:
-        return JSONResponse(content={"code":400,"data":{},"msg":"username/password required"})
-    exists = await db.execute(select(User).where(User.username == username))
-    if exists.scalar():
-        return JSONResponse(content={"code":409,"data":{},"msg":"username was taken"})
-    user = User(username=username, password_hash=hash_pwd(password))
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    return JSONResponse(content={"code":201,"data":{"id":user.id,"username":user.username},"msg":"register success"})
+async def login(user_data: UserLogin, db: AsyncSession = Depends(get_async_db)):
+    """Login and get JWT token"""
+    try:
+        # Find user
+        result = await db.execute(select(User).where(User.username == user_data.username))
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            return JSONResponse(
+                status_code=401,
+                content={"code": 401, "data": {}, "msg": "invalid username or password"}
+            )
+        
+        # Verify password
+        if not verify_password(user_data.password, user.password_hash):
+            return JSONResponse(
+                status_code=401,
+                content={"code": 401, "data": {}, "msg": "invalid username or password"}
+            )
+        
+        # Generate token
+        token = create_access_token(data={"sub": str(user.id)})
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "code": 200,
+                "data": {
+                    "token": token,
+                    "user": {"id": user.id, "username": user.username}
+                },
+                "msg": "login success"
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"code": 500, "data": {}, "msg": str(e)}
+        )
 
 @router.post("/logout")
 async def logout():
-    # 若使用JWT，前端可自行丢弃token
-    return JSONResponse(content={"code":200,"data":{},"msg":"logout success"})
+    """Logout (client should discard token)"""
+    return JSONResponse(
+        status_code=200,
+        content={"code": 200, "data": {}, "msg": "logout success"}
+    )
 
-@router.get("/self")
-async def get_self(user_id: int = 1):
-    # 简化演示
-    return JSONResponse(content={"code":200,"data":{"id":user_id,"username":"wilkinsddvd"},"msg":"whoami"})
+@router.get("/me")
+async def get_me(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_async_db)):
+    """Get current user info"""
+    if not current_user:
+        return JSONResponse(
+            status_code=401,
+            content={"code": 401, "data": {}, "msg": "not authenticated"}
+        )
+    
+    return JSONResponse(
+        status_code=200,
+        content={
+            "code": 200,
+            "data": {"id": current_user.id, "username": current_user.username},
+            "msg": "success"
+        }
+    )

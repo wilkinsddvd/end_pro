@@ -1,5 +1,38 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
+from datetime import datetime
+
+# ============ User Schemas ============
+class UserOut(BaseModel):
+    id: int
+    username: str
+
+class UserRegister(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50)
+    password: str = Field(..., min_length=6)
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class TokenResponse(BaseModel):
+    token: str
+    user: UserOut
+
+# ============ Post Schemas ============
+class PostCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=256)
+    summary: Optional[str] = Field(None, max_length=512)
+    content: str
+    category_id: Optional[int] = None
+    tag_ids: Optional[List[int]] = []
+
+class PostUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=256)
+    summary: Optional[str] = Field(None, max_length=512)
+    content: Optional[str] = None
+    category_id: Optional[int] = None
+    tag_ids: Optional[List[int]] = None
 
 class PostOut(BaseModel):
     id: int
@@ -11,6 +44,7 @@ class PostOut(BaseModel):
     date: str
     author: str
     views: int
+    likes: int = 0
 
 class PostListOut(BaseModel):
     page: int
@@ -18,20 +52,61 @@ class PostListOut(BaseModel):
     total: int
     posts: List[PostOut]
 
+# ============ Category Schemas ============
+class CategoryCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=64)
+
+class CategoryUpdate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=64)
+
 class CategoryOut(BaseModel):
+    id: int
     name: str
     count: int
 
 class CategoryListOut(BaseModel):
     categories: List[CategoryOut]
 
+# ============ Tag Schemas ============
+class TagCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=64)
+
+class TagUpdate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=64)
+
 class TagOut(BaseModel):
+    id: int
     name: str
     count: int
 
 class TagListOut(BaseModel):
     tags: List[TagOut]
 
+# ============ Comment Schemas ============
+class CommentCreate(BaseModel):
+    post_id: int
+    parent_id: Optional[int] = None
+    author_name: str = Field(..., min_length=1, max_length=128)
+    author_email: Optional[EmailStr] = None
+    content: str = Field(..., min_length=1)
+
+class CommentOut(BaseModel):
+    id: int
+    post_id: int
+    parent_id: Optional[int]
+    author_name: str
+    author_email: Optional[str]
+    content: str
+    created_at: str
+    replies: Optional[List['CommentOut']] = []
+
+# Enable forward references
+CommentOut.model_rebuild()
+
+class CommentListOut(BaseModel):
+    comments: List[CommentOut]
+
+# ============ Archive Schemas ============
 class ArchivePost(BaseModel):
     id: int
     title: str
@@ -44,13 +119,16 @@ class ArchiveYear(BaseModel):
 class ArchiveTreeOut(BaseModel):
     archive: List[ArchiveYear]
 
+# ============ SiteInfo Schemas ============
 class SiteInfoOut(BaseModel):
     title: str
     description: str
     icp: str
     footer: str
 
+# ============ Menu Schemas ============
 class MenuOut(BaseModel):
+    id: int
     title: str
     path: Optional[str] = None
     url: Optional[str] = None
@@ -58,10 +136,7 @@ class MenuOut(BaseModel):
 class MenuListOut(BaseModel):
     menus: List[MenuOut]
 
-class UserOut(BaseModel):
-    id: int
-    username: str
-
+# ============ Common Response Schemas ============
 class MsgOut(BaseModel):
     code: int
     data: dict
