@@ -141,3 +141,74 @@ class MsgOut(BaseModel):
     code: int
     data: dict
     msg: str
+
+# ============ Ticket Category Schemas ============
+class TicketCategoryCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=64)
+    description: Optional[str] = Field(None, max_length=256)
+
+class TicketCategoryUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=64)
+    description: Optional[str] = Field(None, max_length=256)
+
+class TicketCategoryOut(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+    count: int = 0
+
+class TicketCategoryListOut(BaseModel):
+    categories: List[TicketCategoryOut]
+
+# ============ Ticket Schemas ============
+class TicketCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=256)
+    description: Optional[str] = None
+    status: Optional[str] = Field("open", pattern="^(open|in_progress|resolved|closed)$")
+    priority: Optional[str] = Field("medium", pattern="^(low|medium|high|urgent)$")
+    category_id: Optional[int] = None
+
+class TicketUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=256)
+    description: Optional[str] = None
+    status: Optional[str] = Field(None, pattern="^(open|in_progress|resolved|closed)$")
+    priority: Optional[str] = Field(None, pattern="^(low|medium|high|urgent)$")
+    category_id: Optional[int] = None
+
+class TicketOut(BaseModel):
+    id: int
+    title: str
+    description: Optional[str]
+    status: str
+    priority: str
+    category_id: Optional[int]
+    category_name: Optional[str]
+    user_id: Optional[int]
+    username: Optional[str]
+    created_at: str
+    updated_at: str
+
+class TicketListOut(BaseModel):
+    page: int
+    size: int
+    total: int
+    tickets: List[TicketOut]
+
+# ============ Quick Reply Schemas ============
+class QuickReplyCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=128)
+    content: str = Field(..., min_length=1)
+
+class QuickReplyUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=128)
+    content: Optional[str] = Field(None, min_length=1)
+
+class QuickReplyOut(BaseModel):
+    id: int
+    title: str
+    content: str
+    created_at: str
+    updated_at: str
+
+class QuickReplyListOut(BaseModel):
+    quick_replies: List[QuickReplyOut]
