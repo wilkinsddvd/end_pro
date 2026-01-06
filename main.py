@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from api import posts, categories, tags, archive, siteinfo, menus, auth, interaction, comments
+from api import posts, categories, tags, archive, siteinfo, menus, auth, interaction, comments, tickets, ticket_categories, quick_replies, overview
 from fastapi.responses import JSONResponse
 from db import engine, Base
 from config import API_TITLE, API_DESCRIPTION, API_VERSION, ALLOWED_ORIGINS
@@ -36,6 +36,10 @@ app.include_router(archive.router, prefix="/api", tags=["Archive"])
 app.include_router(siteinfo.router, prefix="/api", tags=["SiteInfo"])
 app.include_router(menus.router, prefix="/api", tags=["Menus"])
 app.include_router(interaction.router, prefix="/api", tags=["Interaction"])
+app.include_router(tickets.router, prefix="/api", tags=["Tickets"])
+app.include_router(ticket_categories.router, prefix="/api", tags=["Ticket Categories"])
+app.include_router(quick_replies.router, prefix="/api", tags=["Quick Replies"])
+app.include_router(overview.router, prefix="/api", tags=["Overview"])
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

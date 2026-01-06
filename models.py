@@ -71,3 +71,32 @@ class Comment(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     user_id = Column(Integer, ForeignKey("user.id"), nullable=True)
     user = relationship("User")
+
+class TicketCategory(Base):
+    __tablename__ = "ticket_category"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(64), unique=True, nullable=False)
+    description = Column(String(256), nullable=True)
+    tickets = relationship("Ticket", back_populates="category")
+
+class Ticket(Base):
+    __tablename__ = "ticket"
+    id = Column(Integer, primary_key=True)
+    title = Column(String(256), nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String(32), default="open", nullable=False)  # open, in_progress, resolved, closed
+    priority = Column(String(32), default="medium", nullable=False)  # low, medium, high, urgent
+    category_id = Column(Integer, ForeignKey("ticket_category.id"), nullable=True)
+    category = relationship("TicketCategory", back_populates="tickets")
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=True)
+    user = relationship("User")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+class QuickReply(Base):
+    __tablename__ = "quick_reply"
+    id = Column(Integer, primary_key=True)
+    title = Column(String(128), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
