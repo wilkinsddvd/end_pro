@@ -155,7 +155,7 @@ class TicketCategoryOut(BaseModel):
     id: int
     name: str
     description: Optional[str]
-    count: int = 0
+    count: int
 
 class TicketCategoryListOut(BaseModel):
     categories: List[TicketCategoryOut]

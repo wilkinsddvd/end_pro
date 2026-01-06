@@ -9,7 +9,6 @@ from typing import Optional
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import selectinload
 from utils.dependencies import require_current_user
-from datetime import datetime, timezone
 
 router = APIRouter()
 
