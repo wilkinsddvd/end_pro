@@ -252,7 +252,6 @@ async def update_ticket(
         if ticket_data.category_id is not None:
             ticket.category_id = ticket_data.category_id
         
-        ticket.updated_at = datetime.now(timezone.utc)
         await db.commit()
         
         # Reload with relationships

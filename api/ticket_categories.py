@@ -13,17 +13,31 @@ router = APIRouter()
 async def get_ticket_categories(db: AsyncSession = Depends(get_async_db)):
     """Get all ticket categories with ticket counts"""
     try:
-        result = await db.execute(select(TicketCategory))
-        categories = result.scalars().all()
+        # Optimized query using JOIN and GROUP BY to avoid N+1 queries
+        result = await db.execute(
+            select(
+                TicketCategory.id,
+                TicketCategory.name,
+                TicketCategory.description,
+                func.count(Ticket.id).label('count')
+            ).outerjoin(
+                Ticket, Ticket.category_id == TicketCategory.id
+            ).group_by(
+                TicketCategory.id,
+                TicketCategory.name,
+                TicketCategory.description
+            ).order_by(
+                TicketCategory.id
+            )
+        )
+        
         cat_list = []
-        for c in categories:
-            count = await db.execute(select(func.count(Ticket.id)).where(Ticket.category_id == c.id))
-            cnt = count.scalar()
+        for row in result:
             cat_list.append({
-                "id": c.id,
-                "name": c.name,
-                "description": c.description,
-                "count": cnt
+                "id": row.id,
+                "name": row.name,
+                "description": row.description,
+                "count": row.count
             })
         return JSONResponse(content={
             "code": 200,

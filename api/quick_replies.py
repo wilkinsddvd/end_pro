@@ -6,7 +6,6 @@ from schemas import QuickReplyCreate, QuickReplyUpdate
 from db import get_async_db
 from fastapi.responses import JSONResponse
 from utils.dependencies import require_current_user
-from datetime import datetime, timezone
 
 router = APIRouter()
 
@@ -135,7 +134,6 @@ async def update_quick_reply(
         if reply_data.content is not None:
             quick_reply.content = reply_data.content
         
-        quick_reply.updated_at = datetime.now(timezone.utc)
         await db.commit()
         await db.refresh(quick_reply)
         
