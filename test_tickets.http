@@ -1,0 +1,67 @@
+# Test Ticket API Endpoints
+
+### 1. Create a new ticket (POST /api/tickets)
+POST http://127.0.0.1:8000/api/tickets
+Content-Type: application/json
+
+{
+  "title": "Test ticket",
+  "description": "This is a test ticket",
+  "category": "Bug",
+  "priority": "high"
+}
+
+###
+
+### 2. Get ticket list (GET /api/tickets)
+GET http://127.0.0.1:8000/api/tickets?page=1&size=10
+Accept: application/json
+
+###
+
+### 3. Get single ticket by ID (GET /api/tickets/{id})
+GET http://127.0.0.1:8000/api/tickets/1
+Accept: application/json
+
+###
+
+### 4. Get non-existent ticket (should return 404)
+GET http://127.0.0.1:8000/api/tickets/999999
+Accept: application/json
+
+###
+
+### 5. Update ticket (PUT /api/tickets/{id})
+PUT http://127.0.0.1:8000/api/tickets/1
+Content-Type: application/json
+
+{
+  "title": "Updated ticket title",
+  "description": "Updated description",
+  "status": "in_progress",
+  "priority": "urgent"
+}
+
+###
+
+### 6. Update non-existent ticket (should return 404)
+PUT http://127.0.0.1:8000/api/tickets/999999
+Content-Type: application/json
+
+{
+  "title": "This should fail"
+}
+
+###
+
+### 7. Delete ticket (DELETE /api/tickets/{id})
+DELETE http://127.0.0.1:8000/api/tickets/1
+Accept: application/json
+
+###
+
+### 8. Delete non-existent ticket (should return 404)
+DELETE http://127.0.0.1:8000/api/tickets/999999
+Accept: application/json
+
+###
