@@ -7,6 +7,7 @@ from db import get_async_db
 from fastapi.responses import JSONResponse
 from utils.auth import get_password_hash, verify_password, create_access_token
 from utils.dependencies import get_current_user
+import logging
 
 router = APIRouter()
 
@@ -34,8 +35,9 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_async
         # Create new user with password hashing
         try:
             hashed_password = get_password_hash(user_data.password)
-        except (ValueError, Exception) as hash_error:
-            # Catch any password hashing errors (e.g., bcrypt issues)
+        except ValueError as hash_error:
+            # Catch password hashing errors
+            logging.error(f"Password hashing error during registration: {str(hash_error)}")
             return JSONResponse(
                 status_code=400,
                 content={"code": 400, "data": None, "msg": "密码格式不正确或超出允许长度"}
@@ -56,14 +58,14 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_async
         )
     except ValueError as ve:
         # Handle validation errors
+        logging.error(f"Validation error during registration: {str(ve)}")
         return JSONResponse(
             status_code=400,
             content={"code": 400, "data": None, "msg": f"参数验证失败: {str(ve)}"}
         )
     except Exception as e:
         # Log the error for debugging but return generic message
-        import logging
-        logging.error(f"Registration error: {str(e)}")
+        logging.error(f"Unexpected registration error: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={"code": 500, "data": None, "msg": "注册失败，请稍后重试"}
@@ -93,8 +95,9 @@ async def login(user_data: UserLogin, db: AsyncSession = Depends(get_async_db)):
         # Verify password with error handling
         try:
             password_valid = verify_password(user_data.password, user.password_hash)
-        except (ValueError, Exception) as verify_error:
-            # Catch any password verification errors (e.g., bcrypt issues)
+        except ValueError as verify_error:
+            # Catch password verification errors
+            logging.error(f"Password verification error during login: {str(verify_error)}")
             return JSONResponse(
                 status_code=400,
                 content={"code": 400, "data": None, "msg": "密码格式不正确或超出允许长度"}
@@ -122,14 +125,14 @@ async def login(user_data: UserLogin, db: AsyncSession = Depends(get_async_db)):
         )
     except ValueError as ve:
         # Handle validation errors
+        logging.error(f"Validation error during login: {str(ve)}")
         return JSONResponse(
             status_code=400,
             content={"code": 400, "data": None, "msg": f"参数验证失败: {str(ve)}"}
         )
     except Exception as e:
         # Log the error for debugging but return generic message
-        import logging
-        logging.error(f"Login error: {str(e)}")
+        logging.error(f"Unexpected login error: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={"code": 500, "data": None, "msg": "登录失败，请稍后重试"}
