@@ -21,7 +21,7 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_async
         if existing_user:
             return JSONResponse(
                 status_code=409,
-                content={"code": 409, "data": {}, "msg": "username already exists"}
+                content={"code": 409, "data": None, "msg": "用户名已存在"}
             )
         
         # Create new user
@@ -31,24 +31,18 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_async
         await db.commit()
         await db.refresh(user)
         
-        # Generate token
-        token = create_access_token(data={"sub": str(user.id)})
-        
         return JSONResponse(
-            status_code=201,
+            status_code=200,
             content={
-                "code": 201,
-                "data": {
-                    "token": token,
-                    "user": {"id": user.id, "username": user.username}
-                },
-                "msg": "register success"
+                "code": 200,
+                "data": {"id": user.id, "username": user.username},
+                "msg": "注册成功"
             }
         )
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={"code": 500, "data": {}, "msg": str(e)}
+            content={"code": 500, "data": None, "msg": str(e)}
         )
 
 @router.post("/login")
@@ -62,14 +56,14 @@ async def login(user_data: UserLogin, db: AsyncSession = Depends(get_async_db)):
         if not user:
             return JSONResponse(
                 status_code=401,
-                content={"code": 401, "data": {}, "msg": "invalid username or password"}
+                content={"code": 401, "data": None, "msg": "用户名或密码错误"}
             )
         
         # Verify password
         if not verify_password(user_data.password, user.password_hash):
             return JSONResponse(
                 status_code=401,
-                content={"code": 401, "data": {}, "msg": "invalid username or password"}
+                content={"code": 401, "data": None, "msg": "用户名或密码错误"}
             )
         
         # Generate token
@@ -83,13 +77,13 @@ async def login(user_data: UserLogin, db: AsyncSession = Depends(get_async_db)):
                     "token": token,
                     "user": {"id": user.id, "username": user.username}
                 },
-                "msg": "login success"
+                "msg": "登录成功"
             }
         )
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={"code": 500, "data": {}, "msg": str(e)}
+            content={"code": 500, "data": None, "msg": str(e)}
         )
 
 @router.post("/logout")
