@@ -10,6 +10,10 @@ from sqlalchemy.orm import selectinload
 
 router = APIRouter()
 
+# 常量定义
+VALID_PRIORITIES = ["low", "medium", "high", "urgent"]
+VALID_STATUSES = ["open", "in_progress", "resolved", "closed"]
+
 
 @router.get("/tickets")
 async def list_tickets(
@@ -132,8 +136,7 @@ async def create_ticket(
         priority = data.get("priority", "medium")
         
         # 验证优先级值
-        valid_priorities = ["low", "medium", "high", "urgent"]
-        if priority not in valid_priorities:
+        if priority not in VALID_PRIORITIES:
             priority = "medium"
         
         # TODO: 从认证信息中获取实际用户ID，当前使用默认值用于演示
@@ -269,14 +272,12 @@ async def update_ticket(
         
         if "priority" in data:
             # 验证优先级值
-            valid_priorities = ["low", "medium", "high", "urgent"]
-            if data["priority"] in valid_priorities:
+            if data["priority"] in VALID_PRIORITIES:
                 ticket.priority = data["priority"]
         
         if "status" in data:
             # 验证状态值
-            valid_statuses = ["open", "in_progress", "resolved", "closed"]
-            if data["status"] in valid_statuses:
+            if data["status"] in VALID_STATUSES:
                 ticket.status = data["status"]
         
         await db.commit()
