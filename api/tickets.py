@@ -51,9 +51,23 @@ async def list_tickets(
         # 按创建时间倒序排列
         stmt = stmt.order_by(Ticket.created_at.desc())
         
-        # 计算总数
-        total_result = await db.execute(stmt)
-        total_count = len(total_result.scalars().all())
+        # 计算总数（使用独立的 COUNT 查询以提升性能）
+        from sqlalchemy import func
+        count_stmt = select(func.count()).select_from(Ticket)
+        if search:
+            count_stmt = count_stmt.where(
+                Ticket.title.contains(search) | 
+                Ticket.description.contains(search)
+            )
+        if status:
+            count_stmt = count_stmt.where(Ticket.status == status)
+        if category:
+            count_stmt = count_stmt.where(Ticket.category == category)
+        if priority:
+            count_stmt = count_stmt.where(Ticket.priority == priority)
+        
+        total_result = await db.execute(count_stmt)
+        total_count = total_result.scalar()
         
         # 分页查询
         stmt = stmt.offset((page - 1) * size).limit(size)
@@ -122,14 +136,17 @@ async def create_ticket(
         if priority not in valid_priorities:
             priority = "medium"
         
-        # 创建新工单（简化演示，默认 user_id=1）
+        # TODO: 从认证信息中获取实际用户ID，当前使用默认值用于演示
+        DEFAULT_USER_ID = 1  # 简化演示使用的默认用户ID
+        
+        # 创建新工单
         ticket = Ticket(
             title=title,
             description=description,
             category=category,
             priority=priority,
             status="open",  # 新建工单默认为 open 状态
-            user_id=1  # 简化演示，实际应从认证信息获取
+            user_id=DEFAULT_USER_ID
         )
         
         db.add(ticket)
