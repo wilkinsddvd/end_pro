@@ -1,0 +1,78 @@
+# Test Quick Reply API Endpoints
+
+### 1. Create a new quick reply (POST /api/quick-replies)
+POST http://127.0.0.1:8000/api/quick-replies
+Content-Type: application/json
+
+{
+  "title": "Welcome message",
+  "content": "Thank you for contacting us! We will respond to your inquiry as soon as possible.",
+  "category": "General"
+}
+
+###
+
+### 2. Get quick reply list (GET /api/quick-replies)
+GET http://127.0.0.1:8000/api/quick-replies?page=1&size=10
+Accept: application/json
+
+###
+
+### 3. Get quick reply list with search filter
+GET http://127.0.0.1:8000/api/quick-replies?search=Welcome
+Accept: application/json
+
+###
+
+### 4. Get quick reply list filtered by category
+GET http://127.0.0.1:8000/api/quick-replies?category=General
+Accept: application/json
+
+###
+
+### 5. Get single quick reply by ID (GET /api/quick-replies/{id})
+GET http://127.0.0.1:8000/api/quick-replies/1
+Accept: application/json
+
+###
+
+### 6. Get non-existent quick reply (should return 404)
+GET http://127.0.0.1:8000/api/quick-replies/999999
+Accept: application/json
+
+###
+
+### 7. Update quick reply (PUT /api/quick-replies/{id})
+PUT http://127.0.0.1:8000/api/quick-replies/1
+Content-Type: application/json
+
+{
+  "title": "Updated welcome message",
+  "content": "Updated content for welcome message",
+  "category": "Updated",
+  "use_count": 5
+}
+
+###
+
+### 8. Update non-existent quick reply (should return 404)
+PUT http://127.0.0.1:8000/api/quick-replies/999999
+Content-Type: application/json
+
+{
+  "title": "This should fail"
+}
+
+###
+
+### 9. Delete quick reply (DELETE /api/quick-replies/{id})
+DELETE http://127.0.0.1:8000/api/quick-replies/1
+Accept: application/json
+
+###
+
+### 10. Delete non-existent quick reply (should return 404)
+DELETE http://127.0.0.1:8000/api/quick-replies/999999
+Accept: application/json
+
+###
