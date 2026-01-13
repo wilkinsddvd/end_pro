@@ -70,3 +70,13 @@ class Ticket(Base):
     created_at = Column(Date, default=datetime.date.today)  # 创建时间
     user_id = Column(Integer, ForeignKey("user.id"))  # 创建者
     user = relationship("User")
+
+class QuickReply(Base):
+    """快速回复模型"""
+    __tablename__ = "quick_reply"
+    id = Column(Integer, primary_key=True)
+    title = Column(String(256), nullable=False)  # 快速回复标题
+    content = Column(Text, nullable=False)  # 快速回复内容
+    category = Column(String(64))  # 快速回复分类
+    use_count = Column(Integer, default=0)  # 使用次数
+    created_at = Column(Date, default=datetime.date.today)  # 创建时间

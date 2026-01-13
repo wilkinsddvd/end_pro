@@ -92,3 +92,26 @@ class TicketListOut(BaseModel):
     size: int
     total: int
     tickets: List[TicketOut]
+
+# Quick Reply Schemas
+class QuickReplyCreate(BaseModel):
+    """创建快速回复的请求模型"""
+    title: str
+    content: str
+    category: Optional[str] = ""
+
+class QuickReplyOut(BaseModel):
+    """快速回复详情输出模型"""
+    id: int
+    title: str
+    content: str
+    category: Optional[str]
+    use_count: int
+    created_at: str
+
+class QuickReplyListOut(BaseModel):
+    """快速回复列表输出模型"""
+    page: int
+    size: int
+    total: int
+    quick_replies: List[QuickReplyOut]
