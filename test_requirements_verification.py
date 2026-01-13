@@ -67,7 +67,7 @@ def verify_endpoint_validation():
     
     checks = {
         "Length check": 'len(user_data.password) > 72',
-        "Error handling": 'except (ValueError, Exception)',
+        "ValueError handling": 'except ValueError',
         "400 response": 'status_code=400',
         "Clear error message": '密码长度不能超过72个字符',
         "Try-catch for hashing": 'get_password_hash',
@@ -91,7 +91,7 @@ def verify_endpoint_validation():
     
     checks_login = {
         "Length check": 'len(user_data.password) > 72',
-        "Error handling": 'except (ValueError, Exception)',
+        "ValueError handling": 'except ValueError',
         "400 response": 'status_code=400',
         "Clear error message": '密码长度不能超过72个字符',
         "Try-catch for verify": 'verify_password',
