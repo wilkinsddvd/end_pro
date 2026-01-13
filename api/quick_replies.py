@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Query, Depends, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func
 from models import QuickReply
-from schemas import QuickReplyCreate, QuickReplyOut
+from schemas import QuickReplyCreate, QuickReplyOut, QuickReplyListOut
 from db import get_async_db
 from typing import Optional
 from fastapi.responses import JSONResponse
@@ -43,7 +44,6 @@ async def list_quick_replies(
         stmt = stmt.order_by(QuickReply.created_at.desc())
         
         # 计算总数（使用独立的 COUNT 查询以提升性能）
-        from sqlalchemy import func
         count_stmt = select(func.count()).select_from(QuickReply)
         if search:
             count_stmt = count_stmt.where(
