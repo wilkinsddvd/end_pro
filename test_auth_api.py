@@ -1,12 +1,14 @@
-#!/usr/bin/env python3
 """
 Test script for authentication endpoints
 Tests registration, login, and JWT authentication
 """
-import requests
+import os
+import sys
+import traceback
 import json
+import requests
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 def test_register():
     """Test user registration endpoint"""
@@ -19,11 +21,12 @@ def test_register():
         f"{BASE_URL}/api/register",
         json={"username": "demouser", "password": "demo123456"}
     )
+    result = response.json()
     print(f"Status: {response.status_code}")
-    print(f"Response: {json.dumps(response.json(), ensure_ascii=False, indent=2)}")
+    print(f"Response: {json.dumps(result, ensure_ascii=False, indent=2)}")
     assert response.status_code == 200
-    assert response.json()["code"] == 200
-    assert response.json()["msg"] == "注册成功"
+    assert result["code"] == 200
+    assert result["msg"] == "注册成功"
     print("✅ Registration successful!")
     
     # Test duplicate username
@@ -32,11 +35,12 @@ def test_register():
         f"{BASE_URL}/api/register",
         json={"username": "demouser", "password": "another123"}
     )
+    result = response.json()
     print(f"Status: {response.status_code}")
-    print(f"Response: {json.dumps(response.json(), ensure_ascii=False, indent=2)}")
+    print(f"Response: {json.dumps(result, ensure_ascii=False, indent=2)}")
     assert response.status_code == 409
-    assert response.json()["code"] == 409
-    assert response.json()["msg"] == "用户名已存在"
+    assert result["code"] == 409
+    assert result["msg"] == "用户名已存在"
     print("✅ Duplicate username properly rejected!")
     print()
 
@@ -69,11 +73,12 @@ def test_login():
         f"{BASE_URL}/api/login",
         json={"username": "demouser", "password": "wrongpass"}
     )
+    result = response.json()
     print(f"Status: {response.status_code}")
-    print(f"Response: {json.dumps(response.json(), ensure_ascii=False, indent=2)}")
+    print(f"Response: {json.dumps(result, ensure_ascii=False, indent=2)}")
     assert response.status_code == 401
-    assert response.json()["code"] == 401
-    assert response.json()["msg"] == "用户名或密码错误"
+    assert result["code"] == 401
+    assert result["msg"] == "用户名或密码错误"
     print("✅ Invalid password properly rejected!")
     
     # Test non-existent user
@@ -82,11 +87,12 @@ def test_login():
         f"{BASE_URL}/api/login",
         json={"username": "nonexistent", "password": "anypass"}
     )
+    result = response.json()
     print(f"Status: {response.status_code}")
-    print(f"Response: {json.dumps(response.json(), ensure_ascii=False, indent=2)}")
+    print(f"Response: {json.dumps(result, ensure_ascii=False, indent=2)}")
     assert response.status_code == 401
-    assert response.json()["code"] == 401
-    assert response.json()["msg"] == "用户名或密码错误"
+    assert result["code"] == 401
+    assert result["msg"] == "用户名或密码错误"
     print("✅ Non-existent user properly rejected!")
     print()
     
@@ -103,19 +109,21 @@ def test_jwt_auth(token):
         f"{BASE_URL}/api/me",
         headers={"Authorization": f"Bearer {token}"}
     )
+    result = response.json()
     print(f"Status: {response.status_code}")
-    print(f"Response: {json.dumps(response.json(), ensure_ascii=False, indent=2)}")
+    print(f"Response: {json.dumps(result, ensure_ascii=False, indent=2)}")
     assert response.status_code == 200
-    assert response.json()["code"] == 200
-    assert "username" in response.json()["data"]
+    assert result["code"] == 200
+    assert "username" in result["data"]
     print("✅ JWT authentication working!")
     
     # Test without token
     print("\nTesting without token...")
     response = requests.get(f"{BASE_URL}/api/me")
+    result = response.json()
     print(f"Status: {response.status_code}")
-    print(f"Response: {json.dumps(response.json(), ensure_ascii=False, indent=2)}")
-    assert response.json()["code"] == 401
+    print(f"Response: {json.dumps(result, ensure_ascii=False, indent=2)}")
+    assert result["code"] == 401
     print("✅ Properly rejects unauthenticated requests!")
     print()
 
@@ -130,5 +138,5 @@ if __name__ == "__main__":
         print("=" * 50)
     except Exception as e:
         print(f"\n❌ Test failed: {e}")
-        import traceback
         traceback.print_exc()
+        sys.exit(1)
