@@ -57,3 +57,16 @@ class Menu(Base):
     title = Column(String(64))
     path = Column(String(128), nullable=True)
     url = Column(String(256), nullable=True)
+
+class Ticket(Base):
+    """工单模型"""
+    __tablename__ = "ticket"
+    id = Column(Integer, primary_key=True)
+    title = Column(String(256), nullable=False)  # 工单标题
+    description = Column(Text)  # 工单描述
+    category = Column(String(64))  # 工单分类
+    priority = Column(String(32), default="medium")  # 优先级：low, medium, high, urgent
+    status = Column(String(32), default="open")  # 状态：open, in_progress, resolved, closed
+    created_at = Column(Date, default=datetime.date.today)  # 创建时间
+    user_id = Column(Integer, ForeignKey("user.id"))  # 创建者
+    user = relationship("User")
