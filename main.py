@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-from api import posts, categories, tags, archive, siteinfo, menus, auth, interaction
+from api import posts, categories, tags, archive, siteinfo, menus, auth, interaction, tickets
 from fastapi.responses import JSONResponse
 from db import engine, Base
 
@@ -20,6 +20,7 @@ app.include_router(siteinfo.router, prefix="/api", tags=["SiteInfo"])
 app.include_router(menus.router, prefix="/api", tags=["Menus"])
 app.include_router(auth.router, prefix="/api", tags=["Auth"])
 app.include_router(interaction.router, prefix="/api", tags=["Interaction"])
+app.include_router(tickets.router, prefix="/api", tags=["Tickets"])
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

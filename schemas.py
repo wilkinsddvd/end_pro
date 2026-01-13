@@ -66,3 +66,29 @@ class MsgOut(BaseModel):
     code: int
     data: dict
     msg: str
+
+# Ticket Schemas
+class TicketCreate(BaseModel):
+    """创建工单的请求模型"""
+    title: str
+    description: Optional[str] = ""
+    category: Optional[str] = ""
+    priority: Optional[str] = "medium"  # low, medium, high, urgent
+
+class TicketOut(BaseModel):
+    """工单详情输出模型"""
+    id: int
+    title: str
+    description: Optional[str]
+    category: Optional[str]
+    priority: str
+    status: str
+    created_at: str
+    user: Optional[str] = None
+
+class TicketListOut(BaseModel):
+    """工单列表输出模型"""
+    page: int
+    size: int
+    total: int
+    tickets: List[TicketOut]
