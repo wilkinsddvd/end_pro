@@ -14,6 +14,13 @@ router = APIRouter()
 async def register(user_data: UserRegister, db: AsyncSession = Depends(get_async_db)):
     """Register a new user"""
     try:
+        # Explicit password length validation
+        if len(user_data.password) > 72:
+            return JSONResponse(
+                status_code=400,
+                content={"code": 400, "data": None, "msg": "密码长度不能超过72个字符"}
+            )
+        
         # Check if username already exists
         result = await db.execute(select(User).where(User.username == user_data.username))
         existing_user = result.scalar_one_or_none()
@@ -24,8 +31,16 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_async
                 content={"code": 409, "data": None, "msg": "用户名已存在"}
             )
         
-        # Create new user
-        hashed_password = get_password_hash(user_data.password)
+        # Create new user with password hashing
+        try:
+            hashed_password = get_password_hash(user_data.password)
+        except (ValueError, Exception) as hash_error:
+            # Catch any password hashing errors (e.g., bcrypt issues)
+            return JSONResponse(
+                status_code=400,
+                content={"code": 400, "data": None, "msg": "密码格式不正确或超出允许长度"}
+            )
+        
         user = User(username=user_data.username, password_hash=hashed_password)
         db.add(user)
         await db.commit()
@@ -39,16 +54,32 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_async
                 "msg": "注册成功"
             }
         )
+    except ValueError as ve:
+        # Handle validation errors
+        return JSONResponse(
+            status_code=400,
+            content={"code": 400, "data": None, "msg": f"参数验证失败: {str(ve)}"}
+        )
     except Exception as e:
+        # Log the error for debugging but return generic message
+        import logging
+        logging.error(f"Registration error: {str(e)}")
         return JSONResponse(
             status_code=500,
-            content={"code": 500, "data": None, "msg": str(e)}
+            content={"code": 500, "data": None, "msg": "注册失败，请稍后重试"}
         )
 
 @router.post("/login")
 async def login(user_data: UserLogin, db: AsyncSession = Depends(get_async_db)):
     """Login and get JWT token"""
     try:
+        # Explicit password length validation
+        if len(user_data.password) > 72:
+            return JSONResponse(
+                status_code=400,
+                content={"code": 400, "data": None, "msg": "密码长度不能超过72个字符"}
+            )
+        
         # Find user
         result = await db.execute(select(User).where(User.username == user_data.username))
         user = result.scalar_one_or_none()
@@ -59,8 +90,17 @@ async def login(user_data: UserLogin, db: AsyncSession = Depends(get_async_db)):
                 content={"code": 401, "data": None, "msg": "用户名或密码错误"}
             )
         
-        # Verify password
-        if not verify_password(user_data.password, user.password_hash):
+        # Verify password with error handling
+        try:
+            password_valid = verify_password(user_data.password, user.password_hash)
+        except (ValueError, Exception) as verify_error:
+            # Catch any password verification errors (e.g., bcrypt issues)
+            return JSONResponse(
+                status_code=400,
+                content={"code": 400, "data": None, "msg": "密码格式不正确或超出允许长度"}
+            )
+        
+        if not password_valid:
             return JSONResponse(
                 status_code=401,
                 content={"code": 401, "data": None, "msg": "用户名或密码错误"}
@@ -80,10 +120,19 @@ async def login(user_data: UserLogin, db: AsyncSession = Depends(get_async_db)):
                 "msg": "登录成功"
             }
         )
+    except ValueError as ve:
+        # Handle validation errors
+        return JSONResponse(
+            status_code=400,
+            content={"code": 400, "data": None, "msg": f"参数验证失败: {str(ve)}"}
+        )
     except Exception as e:
+        # Log the error for debugging but return generic message
+        import logging
+        logging.error(f"Login error: {str(e)}")
         return JSONResponse(
             status_code=500,
-            content={"code": 500, "data": None, "msg": str(e)}
+            content={"code": 500, "data": None, "msg": "登录失败，请稍后重试"}
         )
 
 @router.post("/logout")

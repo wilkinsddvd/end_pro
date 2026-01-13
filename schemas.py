@@ -9,11 +9,11 @@ class UserOut(BaseModel):
 
 class UserRegister(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=6, max_length=72)
 
 class UserLogin(BaseModel):
     username: str
-    password: str
+    password: str = Field(..., max_length=72)
 
 class TokenResponse(BaseModel):
     token: str
