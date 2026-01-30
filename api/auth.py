@@ -4,6 +4,7 @@ from sqlalchemy.future import select
 from models import User
 from db import get_async_db
 from fastapi.responses import JSONResponse
+from auth_utils import create_access_token, get_current_user
 import hashlib
 
 router = APIRouter()
@@ -21,8 +22,19 @@ async def login(data: dict = Body(...), db: AsyncSession = Depends(get_async_db)
     user = result.scalar()
     if not user or user.password_hash != hash_pwd(password):
         return JSONResponse(content={"code":401,"data":{},"msg":"invalid credentials"})
-    # 此处应生成 JWT，简化为 user_id 返回
-    return JSONResponse(content={"code":200,"data":{"id":user.id,"username":user.username},"msg":"login success"})
+    
+    # Generate JWT access token
+    access_token = create_access_token(data={"sub": user.id, "username": user.username})
+    
+    return JSONResponse(content={
+        "code": 200,
+        "data": {
+            "id": user.id,
+            "username": user.username,
+            "token": access_token
+        },
+        "msg": "login success"
+    })
 
 @router.post("/register")
 async def register(data: dict = Body(...), db: AsyncSession = Depends(get_async_db)):
@@ -45,6 +57,16 @@ async def logout():
     return JSONResponse(content={"code":200,"data":{},"msg":"logout success"})
 
 @router.get("/self")
-async def get_self(user_id: int = 1):
-    # 简化演示
-    return JSONResponse(content={"code":200,"data":{"id":user_id,"username":"wilkinsddvd"},"msg":"whoami"})
+async def get_self(current_user: User = Depends(get_current_user)):
+    """
+    Get current authenticated user information.
+    Requires Authorization: Bearer <token> header.
+    """
+    return JSONResponse(content={
+        "code": 200,
+        "data": {
+            "id": current_user.id,
+            "username": current_user.username
+        },
+        "msg": "whoami"
+    })
