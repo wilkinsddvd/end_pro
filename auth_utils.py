@@ -5,10 +5,11 @@ This module provides functions for creating and validating JWT tokens
 for Bearer token authentication.
 """
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import jwt
 from fastapi import Depends, HTTPException, Header
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from models import User
@@ -18,6 +19,14 @@ from db import get_async_db
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-key-change-in-production")
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "30"))
+
+# Warn if using default secret key
+if SECRET_KEY == "dev-secret-key-change-in-production":
+    import warnings
+    warnings.warn(
+        "Using default JWT_SECRET_KEY! Set JWT_SECRET_KEY environment variable in production.",
+        RuntimeWarning
+    )
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -34,9 +43,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode = data.copy()
     
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -52,15 +61,19 @@ def decode_access_token(token: str) -> Optional[dict]:
         
     Returns:
         Decoded token payload if valid, None if invalid or expired
+        
+    Note:
+        Returns None for both expired and invalid tokens. The caller should
+        handle authentication failures appropriately.
     """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
     except jwt.ExpiredSignatureError:
-        # Token has expired
+        # Token has expired - could be logged for monitoring
         return None
     except jwt.InvalidTokenError:
-        # Invalid token
+        # Invalid token - could indicate tampering
         return None
 
 
@@ -84,8 +97,6 @@ async def get_current_user(
     Raises:
         HTTPException with 401 status if authentication fails
     """
-    from fastapi.responses import JSONResponse
-    
     # Check if Authorization header is present
     if not authorization:
         raise HTTPException(
