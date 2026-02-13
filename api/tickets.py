@@ -4,6 +4,7 @@ from sqlalchemy.future import select
 from models import Ticket, User
 from schemas import TicketCreate, TicketOut
 from db import get_async_db
+from auth_utils import get_current_user
 from typing import Optional
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import selectinload
@@ -109,10 +110,13 @@ async def list_tickets(
 @router.post("/tickets")
 async def create_ticket(
         data: dict = Body(...),
-        db: AsyncSession = Depends(get_async_db)
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
 ):
     """
     创建新工单
+    
+    需要认证: 需要在请求头中提供 Authorization: Bearer <token>
     
     请求体:
     - title: 工单标题（必填）
@@ -139,17 +143,14 @@ async def create_ticket(
         if priority not in VALID_PRIORITIES:
             priority = "medium"
         
-        # TODO: 从认证信息中获取实际用户ID，当前使用默认值用于演示
-        DEFAULT_USER_ID = 1  # 简化演示使用的默认用户ID
-        
-        # 创建新工单
+        # 使用认证用户的ID创建工单
         ticket = Ticket(
             title=title,
             description=description,
             category=category,
             priority=priority,
             status="open",  # 新建工单默认为 open 状态
-            user_id=DEFAULT_USER_ID
+            user_id=current_user.id
         )
         
         db.add(ticket)
