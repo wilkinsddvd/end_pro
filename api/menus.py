@@ -1,14 +1,18 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from models import Menu
+from models import Menu, User
 from db import get_async_db
+from auth_utils import get_current_user
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 
 router = APIRouter()
 
 @router.get("/menus")
-async def get_menus(db: AsyncSession = Depends(get_async_db)):
+async def get_menus(
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
+):
     try:
         result = await db.execute(select(Menu))
         menus = result.scalars().all()

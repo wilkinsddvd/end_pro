@@ -24,10 +24,11 @@ async def list_tickets(
         status: Optional[str] = None,
         category: Optional[str] = None,
         priority: Optional[str] = None,
-        db: AsyncSession = Depends(get_async_db)
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
 ):
     """
-    获取工单列表
+    获取工单列表（仅返回当前用户的工单）
     
     参数:
     - page: 页码，默认1
@@ -38,8 +39,8 @@ async def list_tickets(
     - priority: 优先级筛选（low, medium, high, urgent）
     """
     try:
-        # 构造动态筛选条件
-        stmt = select(Ticket).options(selectinload(Ticket.user))
+        # 构造动态筛选条件（只查询当前用户的工单）
+        stmt = select(Ticket).options(selectinload(Ticket.user)).where(Ticket.user_id == current_user.id)
         
         if search:
             stmt = stmt.where(
@@ -58,7 +59,7 @@ async def list_tickets(
         
         # 计算总数（使用独立的 COUNT 查询以提升性能）
         from sqlalchemy import func
-        count_stmt = select(func.count()).select_from(Ticket)
+        count_stmt = select(func.count()).select_from(Ticket).where(Ticket.user_id == current_user.id)
         if search:
             count_stmt = count_stmt.where(
                 Ticket.title.contains(search) | 
@@ -184,9 +185,13 @@ async def create_ticket(
 
 
 @router.get("/tickets/{id}")
-async def get_ticket(id: int, db: AsyncSession = Depends(get_async_db)):
+async def get_ticket(
+        id: int, 
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
+):
     """
-    获取单个工单详情
+    获取单个工单详情（仅限自己的工单）
     
     参数:
     - id: 工单ID
@@ -206,6 +211,14 @@ async def get_ticket(id: int, db: AsyncSession = Depends(get_async_db)):
                 "code": 404,
                 "data": {},
                 "msg": "ticket not found"
+            })
+        
+        # 验证所有权
+        if ticket.user_id != current_user.id:
+            return JSONResponse(content={
+                "code": 403,
+                "data": {},
+                "msg": "access denied"
             })
         
         # 构造返回数据
@@ -233,10 +246,11 @@ async def get_ticket(id: int, db: AsyncSession = Depends(get_async_db)):
 async def update_ticket(
         id: int,
         data: dict = Body(...),
-        db: AsyncSession = Depends(get_async_db)
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
 ):
     """
-    更新工单信息
+    更新工单信息（仅限自己的工单）
     
     参数:
     - id: 工单ID
@@ -259,6 +273,14 @@ async def update_ticket(
                 "code": 404,
                 "data": {},
                 "msg": "ticket not found"
+            })
+        
+        # 验证所有权
+        if ticket.user_id != current_user.id:
+            return JSONResponse(content={
+                "code": 403,
+                "data": {},
+                "msg": "access denied"
             })
         
         # 更新字段
@@ -311,9 +333,13 @@ async def update_ticket(
 
 
 @router.delete("/tickets/{id}")
-async def delete_ticket(id: int, db: AsyncSession = Depends(get_async_db)):
+async def delete_ticket(
+        id: int, 
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
+):
     """
-    删除工单
+    删除工单（仅限自己的工单）
     
     参数:
     - id: 工单ID
@@ -329,6 +355,14 @@ async def delete_ticket(id: int, db: AsyncSession = Depends(get_async_db)):
                 "code": 404,
                 "data": {},
                 "msg": "ticket not found"
+            })
+        
+        # 验证所有权
+        if ticket.user_id != current_user.id:
+            return JSONResponse(content={
+                "code": 403,
+                "data": {},
+                "msg": "access denied"
             })
         
         # 删除工单
