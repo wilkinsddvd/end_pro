@@ -6,8 +6,6 @@ class PostOut(BaseModel):
     title: str
     summary: Optional[str]
     content: str
-    category: str
-    tags: List[str]
     date: str
     author: str
     views: int
@@ -17,32 +15,6 @@ class PostListOut(BaseModel):
     size: int
     total: int
     posts: List[PostOut]
-
-class CategoryOut(BaseModel):
-    name: str
-    count: int
-
-class CategoryListOut(BaseModel):
-    categories: List[CategoryOut]
-
-class TagOut(BaseModel):
-    name: str
-    count: int
-
-class TagListOut(BaseModel):
-    tags: List[TagOut]
-
-class ArchivePost(BaseModel):
-    id: int
-    title: str
-    date: str
-
-class ArchiveYear(BaseModel):
-    year: int
-    posts: List[ArchivePost]
-
-class ArchiveTreeOut(BaseModel):
-    archive: List[ArchiveYear]
 
 class SiteInfoOut(BaseModel):
     title: str

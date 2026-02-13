@@ -52,7 +52,7 @@ async def register(data: dict = Body(...), db: AsyncSession = Depends(get_async_
     return JSONResponse(content={"code":201,"data":{"id":user.id,"username":user.username},"msg":"register success"})
 
 @router.post("/logout")
-async def logout():
+async def logout(current_user: User = Depends(get_current_user)):
     # 若使用JWT，前端可自行丢弃token
     return JSONResponse(content={"code":200,"data":{},"msg":"logout success"})
 
