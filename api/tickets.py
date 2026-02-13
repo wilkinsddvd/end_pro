@@ -24,10 +24,11 @@ async def list_tickets(
         status: Optional[str] = None,
         category: Optional[str] = None,
         priority: Optional[str] = None,
-        db: AsyncSession = Depends(get_async_db)
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
 ):
     """
-    获取工单列表
+    获取工单列表 - 只返回当前登录用户创建的工单
     
     参数:
     - page: 页码，默认1
@@ -38,8 +39,8 @@ async def list_tickets(
     - priority: 优先级筛选（low, medium, high, urgent）
     """
     try:
-        # 构造动态筛选条件
-        stmt = select(Ticket).options(selectinload(Ticket.user))
+        # 构造动态筛选条件 - 只查询当前用户的工单
+        stmt = select(Ticket).where(Ticket.user_id == current_user.id).options(selectinload(Ticket.user))
         
         if search:
             stmt = stmt.where(
@@ -58,7 +59,7 @@ async def list_tickets(
         
         # 计算总数（使用独立的 COUNT 查询以提升性能）
         from sqlalchemy import func
-        count_stmt = select(func.count()).select_from(Ticket)
+        count_stmt = select(func.count()).select_from(Ticket).where(Ticket.user_id == current_user.id)
         if search:
             count_stmt = count_stmt.where(
                 Ticket.title.contains(search) | 
@@ -184,9 +185,13 @@ async def create_ticket(
 
 
 @router.get("/tickets/{id}")
-async def get_ticket(id: int, db: AsyncSession = Depends(get_async_db)):
+async def get_ticket(
+        id: int, 
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
+):
     """
-    获取单个工单详情
+    获取单个工单详情 - 只允许查看自己的工单
     
     参数:
     - id: 工单ID
@@ -196,6 +201,7 @@ async def get_ticket(id: int, db: AsyncSession = Depends(get_async_db)):
         stmt = (
             select(Ticket)
             .where(Ticket.id == id)
+            .where(Ticket.user_id == current_user.id)  # 只能查看自己的工单
             .options(selectinload(Ticket.user))
         )
         result = await db.execute(stmt)
@@ -233,10 +239,11 @@ async def get_ticket(id: int, db: AsyncSession = Depends(get_async_db)):
 async def update_ticket(
         id: int,
         data: dict = Body(...),
-        db: AsyncSession = Depends(get_async_db)
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
 ):
     """
-    更新工单信息
+    更新工单信息 - 只允许更新自己的工单
     
     参数:
     - id: 工单ID
@@ -249,8 +256,8 @@ async def update_ticket(
     - status: 状态（可选）
     """
     try:
-        # 查询工单是否存在
-        stmt = select(Ticket).where(Ticket.id == id)
+        # 查询工单是否存在且属于当前用户
+        stmt = select(Ticket).where(Ticket.id == id).where(Ticket.user_id == current_user.id)
         result = await db.execute(stmt)
         ticket = result.scalar_one_or_none()
         
@@ -311,16 +318,20 @@ async def update_ticket(
 
 
 @router.delete("/tickets/{id}")
-async def delete_ticket(id: int, db: AsyncSession = Depends(get_async_db)):
+async def delete_ticket(
+        id: int, 
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
+):
     """
-    删除工单
+    删除工单 - 只允许删除自己的工单
     
     参数:
     - id: 工单ID
     """
     try:
-        # 查询工单是否存在
-        stmt = select(Ticket).where(Ticket.id == id)
+        # 查询工单是否存在且属于当前用户
+        stmt = select(Ticket).where(Ticket.id == id).where(Ticket.user_id == current_user.id)
         result = await db.execute(stmt)
         ticket = result.scalar_one_or_none()
         

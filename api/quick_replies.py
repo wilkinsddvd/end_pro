@@ -2,11 +2,13 @@ from fastapi import APIRouter, Query, Depends, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
-from models import QuickReply
+from models import QuickReply, User
 from schemas import QuickReplyCreate, QuickReplyOut, QuickReplyListOut
 from db import get_async_db
+from auth_utils import get_current_user
 from typing import Optional
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import selectinload
 
 router = APIRouter()
 
@@ -17,10 +19,11 @@ async def list_quick_replies(
         size: int = Query(10, ge=1),
         search: Optional[str] = None,
         category: Optional[str] = None,
-        db: AsyncSession = Depends(get_async_db)
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
 ):
     """
-    获取快速回复列表
+    获取快速回复列表 - 只返回当前登录用户的快速回复
     
     参数:
     - page: 页码，默认1
@@ -29,8 +32,8 @@ async def list_quick_replies(
     - category: 分类筛选
     """
     try:
-        # 构造动态筛选条件
-        stmt = select(QuickReply)
+        # 构造动态筛选条件 - 只查询当前用户的快速回复
+        stmt = select(QuickReply).where(QuickReply.user_id == current_user.id)
         
         if search:
             stmt = stmt.where(
@@ -44,7 +47,7 @@ async def list_quick_replies(
         stmt = stmt.order_by(QuickReply.created_at.desc())
         
         # 计算总数（使用独立的 COUNT 查询以提升性能）
-        count_stmt = select(func.count()).select_from(QuickReply)
+        count_stmt = select(func.count()).select_from(QuickReply).where(QuickReply.user_id == current_user.id)
         if search:
             count_stmt = count_stmt.where(
                 QuickReply.title.contains(search) | 
@@ -90,10 +93,11 @@ async def list_quick_replies(
 @router.post("/quick-replies")
 async def create_quick_reply(
         data: dict = Body(...),
-        db: AsyncSession = Depends(get_async_db)
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
 ):
     """
-    创建新快速回复
+    创建新快速回复 - 自动关联当前登录用户
     
     请求体:
     - title: 快速回复标题（必填）
@@ -122,12 +126,13 @@ async def create_quick_reply(
         # 获取可选字段
         category = data.get("category", "")
         
-        # 创建新快速回复
+        # 创建新快速回复 - 关联当前用户
         quick_reply = QuickReply(
             title=title,
             content=content,
             category=category,
-            use_count=0
+            use_count=0,
+            user_id=current_user.id
         )
         
         db.add(quick_reply)
@@ -154,15 +159,19 @@ async def create_quick_reply(
 
 
 @router.get("/quick-replies/{id}")
-async def get_quick_reply(id: int, db: AsyncSession = Depends(get_async_db)):
+async def get_quick_reply(
+        id: int, 
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
+):
     """
-    获取单个快速回复详情
+    获取单个快速回复详情 - 只允许查看自己的快速回复
     
     参数:
     - id: 快速回复ID
     """
     try:
-        stmt = select(QuickReply).where(QuickReply.id == id)
+        stmt = select(QuickReply).where(QuickReply.id == id).where(QuickReply.user_id == current_user.id)
         result = await db.execute(stmt)
         quick_reply = result.scalar_one_or_none()
         
@@ -196,10 +205,11 @@ async def get_quick_reply(id: int, db: AsyncSession = Depends(get_async_db)):
 async def update_quick_reply(
         id: int,
         data: dict = Body(...),
-        db: AsyncSession = Depends(get_async_db)
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
 ):
     """
-    更新快速回复信息
+    更新快速回复信息 - 只允许更新自己的快速回复
     
     参数:
     - id: 快速回复ID
@@ -211,8 +221,8 @@ async def update_quick_reply(
     - use_count: 使用次数（可选）
     """
     try:
-        # 查询快速回复是否存在
-        stmt = select(QuickReply).where(QuickReply.id == id)
+        # 查询快速回复是否存在且属于当前用户
+        stmt = select(QuickReply).where(QuickReply.id == id).where(QuickReply.user_id == current_user.id)
         result = await db.execute(stmt)
         quick_reply = result.scalar_one_or_none()
         
@@ -259,16 +269,20 @@ async def update_quick_reply(
 
 
 @router.delete("/quick-replies/{id}")
-async def delete_quick_reply(id: int, db: AsyncSession = Depends(get_async_db)):
+async def delete_quick_reply(
+        id: int, 
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
+):
     """
-    删除快速回复
+    删除快速回复 - 只允许删除自己的快速回复
     
     参数:
     - id: 快速回复ID
     """
     try:
-        # 查询快速回复是否存在
-        stmt = select(QuickReply).where(QuickReply.id == id)
+        # 查询快速回复是否存在且属于当前用户
+        stmt = select(QuickReply).where(QuickReply.id == id).where(QuickReply.user_id == current_user.id)
         result = await db.execute(stmt)
         quick_reply = result.scalar_one_or_none()
         

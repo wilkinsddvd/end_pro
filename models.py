@@ -1,13 +1,7 @@
 from db import Base
-from sqlalchemy import Column, Integer, String, Text, Date, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, Text, Date, ForeignKey
 from sqlalchemy.orm import relationship
 import datetime
-
-post_tag = Table(
-    'post_tag', Base.metadata,
-    Column("post_id", Integer, ForeignKey("post.id")),
-    Column("tag_id", Integer, ForeignKey("tag.id"))
-)
 
 class User(Base):
     __tablename__ = "user"
@@ -22,26 +16,11 @@ class Post(Base):
     title = Column(String(256))
     summary = Column(String(512))
     content = Column(Text)
-    category_id = Column(Integer, ForeignKey("category.id"))
-    category = relationship("Category", back_populates="posts")
-    tags = relationship("Tag", secondary=post_tag, back_populates="posts")
     date = Column(Date, default=datetime.date.today)
     author_id = Column(Integer, ForeignKey("user.id"))
     author = relationship("User")
     views = Column(Integer, default=0)
     likes = Column(Integer, default=0)
-
-class Category(Base):
-    __tablename__ = "category"
-    id = Column(Integer, primary_key=True)
-    name = Column(String(64), unique=True)
-    posts = relationship("Post", back_populates="category")
-
-class Tag(Base):
-    __tablename__ = "tag"
-    id = Column(Integer, primary_key=True)
-    name = Column(String(64), unique=True)
-    posts = relationship("Post", secondary=post_tag, back_populates="tags")
 
 class SiteInfo(Base):
     __tablename__ = "siteinfo"
@@ -80,3 +59,5 @@ class QuickReply(Base):
     category = Column(String(64))  # 快速回复分类
     use_count = Column(Integer, default=0)  # 使用次数
     created_at = Column(Date, default=datetime.date.today)  # 创建时间
+    user_id = Column(Integer, ForeignKey("user.id"))  # 创建者
+    user = relationship("User")
