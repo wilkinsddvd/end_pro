@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-from api import posts, categories, tags, archive, siteinfo, menus, auth, interaction, tickets, quick_replies
+from api import siteinfo, menus, auth, tickets, quick_replies
 from fastapi.responses import JSONResponse
 from db import engine, Base
 
@@ -12,14 +12,9 @@ async def on_startup():
         await conn.run_sync(Base.metadata.create_all)
 
 # 注册 API 路由
-app.include_router(posts.router, prefix="/api", tags=["Posts"])
-app.include_router(categories.router, prefix="/api", tags=["Categories"])
-app.include_router(tags.router, prefix="/api", tags=["Tags"])
-app.include_router(archive.router, prefix="/api", tags=["Archive"])
 app.include_router(siteinfo.router, prefix="/api", tags=["SiteInfo"])
 app.include_router(menus.router, prefix="/api", tags=["Menus"])
 app.include_router(auth.router, prefix="/api", tags=["Auth"])
-app.include_router(interaction.router, prefix="/api", tags=["Interaction"])
 app.include_router(tickets.router, prefix="/api", tags=["Tickets"])
 app.include_router(quick_replies.router, prefix="/api", tags=["QuickReplies"])
 
