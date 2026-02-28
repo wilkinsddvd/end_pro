@@ -94,9 +94,13 @@ async def register(data: dict = Body(...), db: AsyncSession = Depends(get_async_
     db.add(user)
     await db.commit()
     await db.refresh(user)
+
+    # Issue a JWT token so the client can stay signed in immediately after registration
+    access_token = create_access_token(data={"sub": user.id, "username": user.username})
+
     return JSONResponse(content={
         "code": 201,
-        "data": {"id": user.id, "username": user.username, "role": user.role},
+        "data": {"id": user.id, "username": user.username, "role": user.role, "token": access_token},
         "msg": "register success"
     })
 
