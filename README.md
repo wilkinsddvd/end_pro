@@ -75,7 +75,9 @@ Register a new user.
   "code": 201,
   "data": {
     "id": 1,
-    "username": "your_username"
+    "username": "your_username",
+    "role": "user",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   },
   "msg": "register success"
 }
@@ -99,6 +101,7 @@ Login and receive a JWT access token.
   "data": {
     "id": 1,
     "username": "your_username",
+    "role": "user",
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   },
   "msg": "login success"
@@ -121,7 +124,8 @@ Authorization: Bearer <your_jwt_token>
   "code": 200,
   "data": {
     "id": 1,
-    "username": "your_username"
+    "username": "your_username",
+    "role": "user"
   },
   "msg": "whoami"
 }

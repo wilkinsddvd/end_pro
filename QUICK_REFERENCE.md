@@ -37,7 +37,7 @@ Response:
 ```json
 {
   "code": 201,
-  "data": {"id": 1, "username": "testuser"},
+  "data": {"id": 1, "username": "testuser", "role": "user", "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."},
   "msg": "register success"
 }
 ```
@@ -56,6 +56,7 @@ Response:
   "data": {
     "id": 1,
     "username": "testuser",
+    "role": "user",
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   },
   "msg": "login success"

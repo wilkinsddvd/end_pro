@@ -38,7 +38,9 @@ Response:
   "code": 201,
   "data": {
     "id": 1,
-    "username": "alice"
+    "username": "alice",
+    "role": "user",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   },
   "msg": "register success"
 }
@@ -62,6 +64,7 @@ Response:
   "data": {
     "id": 1,
     "username": "alice",
+    "role": "user",
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsInVzZXJuYW1lIjoiYWxpY2UiLCJleHAiOjE3Njk3ODA3MDB9.abc123..."
   },
   "msg": "login success"
@@ -86,7 +89,8 @@ Response:
   "code": 200,
   "data": {
     "id": 1,
-    "username": "alice"
+    "username": "alice",
+    "role": "user"
   },
   "msg": "whoami"
 }
