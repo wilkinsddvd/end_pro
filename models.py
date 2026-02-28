@@ -1,5 +1,5 @@
 from db import Base
-from sqlalchemy import Column, Integer, String, Text, Date, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, Date, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 import datetime
 
@@ -8,6 +8,7 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(128), unique=True, index=True)
     password_hash = Column(String(256))
+    role = Column(String(32), default="user", nullable=False)  # "user" or "admin"
     created_at = Column(Date, default=datetime.date.today)
 
 class Post(Base):
@@ -61,3 +62,16 @@ class QuickReply(Base):
     created_at = Column(Date, default=datetime.date.today)  # 创建时间
     user_id = Column(Integer, ForeignKey("user.id"))  # 创建者
     user = relationship("User")
+
+class TicketHistory(Base):
+    """工单历史/审计日志模型 - 记录状态变更"""
+    __tablename__ = "ticket_history"
+    id = Column(Integer, primary_key=True)
+    ticket_id = Column(Integer, ForeignKey("ticket.id"), nullable=False)
+    changed_by_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    old_status = Column(String(32))
+    new_status = Column(String(32))
+    note = Column(String(512))
+    changed_at = Column(DateTime, default=lambda: datetime.datetime.utcnow())
+    ticket = relationship("Ticket")
+    changed_by = relationship("User")

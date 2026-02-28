@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Query, Depends, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from models import Ticket, User
-from schemas import TicketCreate, TicketOut
+from sqlalchemy import func
+from models import Ticket, TicketHistory, User
+from schemas import TicketCreate, TicketUpdate, TicketOut, VALID_PRIORITIES, VALID_STATUSES, TICKET_TRANSITIONS
 from db import get_async_db
 from auth_utils import get_current_user
 from typing import Optional
@@ -11,9 +12,18 @@ from sqlalchemy.orm import selectinload
 
 router = APIRouter()
 
-# 常量定义
-VALID_PRIORITIES = ["low", "medium", "high", "urgent"]
-VALID_STATUSES = ["open", "in_progress", "resolved", "closed"]
+
+def _ticket_to_dict(ticket: Ticket) -> dict:
+    return {
+        "id": ticket.id,
+        "title": ticket.title,
+        "description": ticket.description or "",
+        "category": ticket.category or "",
+        "priority": ticket.priority,
+        "status": ticket.status,
+        "created_at": ticket.created_at.strftime("%Y-%m-%d") if ticket.created_at else "",
+        "user": ticket.user.username if ticket.user else None,
+    }
 
 
 @router.get("/tickets")
@@ -29,327 +39,225 @@ async def list_tickets(
 ):
     """
     获取工单列表 - 只返回当前登录用户创建的工单
-    
-    参数:
-    - page: 页码，默认1
-    - size: 每页数量，默认10
-    - search: 搜索关键词（标题或描述）
-    - status: 状态筛选（open, in_progress, resolved, closed）
-    - category: 分类筛选
-    - priority: 优先级筛选（low, medium, high, urgent）
+
+    Filters: search (title/description), status, category, priority
     """
-    try:
-        # 构造动态筛选条件 - 只查询当前用户的工单
-        stmt = select(Ticket).where(Ticket.user_id == current_user.id).options(selectinload(Ticket.user))
-        
-        if search:
-            stmt = stmt.where(
-                Ticket.title.contains(search) | 
-                Ticket.description.contains(search)
-            )
-        if status:
-            stmt = stmt.where(Ticket.status == status)
-        if category:
-            stmt = stmt.where(Ticket.category == category)
-        if priority:
-            stmt = stmt.where(Ticket.priority == priority)
-        
-        # 按创建时间倒序排列
-        stmt = stmt.order_by(Ticket.created_at.desc())
-        
-        # 计算总数（使用独立的 COUNT 查询以提升性能）
-        from sqlalchemy import func
-        count_stmt = select(func.count()).select_from(Ticket).where(Ticket.user_id == current_user.id)
-        if search:
-            count_stmt = count_stmt.where(
-                Ticket.title.contains(search) | 
-                Ticket.description.contains(search)
-            )
-        if status:
-            count_stmt = count_stmt.where(Ticket.status == status)
-        if category:
-            count_stmt = count_stmt.where(Ticket.category == category)
-        if priority:
-            count_stmt = count_stmt.where(Ticket.priority == priority)
-        
-        total_result = await db.execute(count_stmt)
-        total_count = total_result.scalar()
-        
-        # 分页查询
-        stmt = stmt.offset((page - 1) * size).limit(size)
-        result = await db.execute(stmt)
-        tickets = result.scalars().all()
-        
-        # 构造返回数据
-        ticket_list = []
-        for ticket in tickets:
-            ticket_list.append({
-                "id": ticket.id,
-                "title": ticket.title,
-                "description": ticket.description or "",
-                "category": ticket.category or "",
-                "priority": ticket.priority,
-                "status": ticket.status,
-                "created_at": ticket.created_at.strftime("%Y-%m-%d") if ticket.created_at else "",
-                "user": ticket.user.username if ticket.user else None
-            })
-        
-        return JSONResponse(content={
-            "code": 200,
-            "data": {
-                "page": page,
-                "size": size,
-                "total": total_count,
-                "tickets": ticket_list
-            },
-            "msg": "success"
-        })
-    except Exception as e:
-        return JSONResponse(content={"code": 500, "data": {}, "msg": str(e)})
+    stmt = select(Ticket).where(Ticket.user_id == current_user.id).options(selectinload(Ticket.user))
+    count_stmt = select(func.count()).select_from(Ticket).where(Ticket.user_id == current_user.id)
+
+    if search:
+        cond = Ticket.title.contains(search) | Ticket.description.contains(search)
+        stmt = stmt.where(cond)
+        count_stmt = count_stmt.where(cond)
+    if status:
+        stmt = stmt.where(Ticket.status == status)
+        count_stmt = count_stmt.where(Ticket.status == status)
+    if category:
+        stmt = stmt.where(Ticket.category == category)
+        count_stmt = count_stmt.where(Ticket.category == category)
+    if priority:
+        stmt = stmt.where(Ticket.priority == priority)
+        count_stmt = count_stmt.where(Ticket.priority == priority)
+
+    total_count = (await db.execute(count_stmt)).scalar()
+
+    stmt = stmt.order_by(Ticket.created_at.desc()).offset((page - 1) * size).limit(size)
+    tickets = (await db.execute(stmt)).scalars().all()
+
+    return JSONResponse(content={
+        "code": 200,
+        "data": {
+            "page": page,
+            "size": size,
+            "total": total_count,
+            "tickets": [_ticket_to_dict(t) for t in tickets],
+        },
+        "msg": "success"
+    })
 
 
 @router.post("/tickets")
 async def create_ticket(
-        data: dict = Body(...),
+        data: TicketCreate,
         db: AsyncSession = Depends(get_async_db),
         current_user: User = Depends(get_current_user)
 ):
-    """
-    创建新工单
-    
-    需要认证: 需要在请求头中提供 Authorization: Bearer <token>
-    
-    请求体:
-    - title: 工单标题（必填）
-    - description: 工单描述（可选）
-    - category: 工单分类（可选）
-    - priority: 优先级（可选，默认medium）
-    """
-    try:
-        # 验证必填字段
-        title = data.get("title")
-        if not title:
-            return JSONResponse(content={
-                "code": 400,
-                "data": {},
-                "msg": "title is required"
-            })
-        
-        # 获取可选字段
-        description = data.get("description", "")
-        category = data.get("category", "")
-        priority = data.get("priority", "medium")
-        
-        # 验证优先级值
-        if priority not in VALID_PRIORITIES:
-            priority = "medium"
-        
-        # 使用认证用户的ID创建工单
-        ticket = Ticket(
-            title=title,
-            description=description,
-            category=category,
-            priority=priority,
-            status="open",  # 新建工单默认为 open 状态
-            user_id=current_user.id
-        )
-        
-        db.add(ticket)
-        await db.commit()
-        await db.refresh(ticket)
-        
-        # 加载用户信息
-        stmt = select(Ticket).where(Ticket.id == ticket.id).options(selectinload(Ticket.user))
-        result = await db.execute(stmt)
-        ticket = result.scalar_one()
-        
-        # 返回新建的工单详情
-        ticket_data = {
-            "id": ticket.id,
-            "title": ticket.title,
-            "description": ticket.description or "",
-            "category": ticket.category or "",
-            "priority": ticket.priority,
-            "status": ticket.status,
-            "created_at": ticket.created_at.strftime("%Y-%m-%d") if ticket.created_at else "",
-            "user": ticket.user.username if ticket.user else None
-        }
-        
-        return JSONResponse(content={
-            "code": 201,
-            "data": ticket_data,
-            "msg": "ticket created successfully"
-        })
-    except Exception as e:
-        return JSONResponse(content={"code": 500, "data": {}, "msg": str(e)})
+    """创建新工单 - Requires auth. Sets status=open and records initial history."""
+    ticket = Ticket(
+        title=data.title,
+        description=data.description or "",
+        category=data.category or "",
+        priority=data.priority,
+        status="open",
+        user_id=current_user.id,
+    )
+    db.add(ticket)
+    await db.flush()  # get ticket.id without committing
+
+    # Record initial history entry
+    history = TicketHistory(
+        ticket_id=ticket.id,
+        changed_by_id=current_user.id,
+        old_status=None,
+        new_status="open",
+        note="ticket created",
+    )
+    db.add(history)
+    await db.commit()
+    await db.refresh(ticket)
+
+    stmt = select(Ticket).where(Ticket.id == ticket.id).options(selectinload(Ticket.user))
+    ticket = (await db.execute(stmt)).scalar_one()
+
+    return JSONResponse(content={
+        "code": 201,
+        "data": _ticket_to_dict(ticket),
+        "msg": "ticket created successfully"
+    })
 
 
 @router.get("/tickets/{id}")
 async def get_ticket(
-        id: int, 
+        id: int,
         db: AsyncSession = Depends(get_async_db),
         current_user: User = Depends(get_current_user)
 ):
-    """
-    获取单个工单详情 - 只允许查看自己的工单
-    
-    参数:
-    - id: 工单ID
-    """
-    try:
-        # 使用 selectinload 预加载用户信息，防止 missing greenlet 问题
-        stmt = (
-            select(Ticket)
-            .where(Ticket.id == id)
-            .where(Ticket.user_id == current_user.id)  # 只能查看自己的工单
-            .options(selectinload(Ticket.user))
-        )
-        result = await db.execute(stmt)
-        ticket = result.scalar_one_or_none()
-        
-        if not ticket:
-            return JSONResponse(content={
-                "code": 404,
-                "data": {},
-                "msg": "ticket not found"
-            })
-        
-        # 构造返回数据
-        ticket_data = {
-            "id": ticket.id,
-            "title": ticket.title,
-            "description": ticket.description or "",
-            "category": ticket.category or "",
-            "priority": ticket.priority,
-            "status": ticket.status,
-            "created_at": ticket.created_at.strftime("%Y-%m-%d") if ticket.created_at else "",
-            "user": ticket.user.username if ticket.user else None
-        }
-        
-        return JSONResponse(content={
-            "code": 200,
-            "data": ticket_data,
-            "msg": "success"
-        })
-    except Exception as e:
-        return JSONResponse(content={"code": 500, "data": {}, "msg": str(e)})
+    """获取单个工单详情 - 只允许查看自己的工单"""
+    stmt = (
+        select(Ticket)
+        .where(Ticket.id == id, Ticket.user_id == current_user.id)
+        .options(selectinload(Ticket.user))
+    )
+    ticket = (await db.execute(stmt)).scalar_one_or_none()
+    if not ticket:
+        return JSONResponse(content={"code": 404, "data": {}, "msg": "ticket not found"})
+    return JSONResponse(content={"code": 200, "data": _ticket_to_dict(ticket), "msg": "success"})
 
 
 @router.put("/tickets/{id}")
 async def update_ticket(
         id: int,
-        data: dict = Body(...),
+        data: TicketUpdate,
         db: AsyncSession = Depends(get_async_db),
         current_user: User = Depends(get_current_user)
 ):
     """
     更新工单信息 - 只允许更新自己的工单
-    
-    参数:
-    - id: 工单ID
-    
-    请求体:
-    - title: 工单标题（可选）
-    - description: 工单描述（可选）
-    - category: 工单分类（可选）
-    - priority: 优先级（可选）
-    - status: 状态（可选）
+
+    Status transitions are validated against allowed rules:
+    open -> in_progress | closed
+    in_progress -> resolved | open | closed
+    resolved -> closed | open
+    closed -> (no further transitions)
     """
-    try:
-        # 查询工单是否存在且属于当前用户
-        stmt = select(Ticket).where(Ticket.id == id).where(Ticket.user_id == current_user.id)
-        result = await db.execute(stmt)
-        ticket = result.scalar_one_or_none()
-        
-        if not ticket:
+    stmt = select(Ticket).where(Ticket.id == id, Ticket.user_id == current_user.id)
+    ticket = (await db.execute(stmt)).scalar_one_or_none()
+    if not ticket:
+        return JSONResponse(content={"code": 404, "data": {}, "msg": "ticket not found"})
+
+    if data.title:
+        ticket.title = data.title
+    if data.description is not None:
+        ticket.description = data.description
+    if data.category is not None:
+        ticket.category = data.category
+    if data.priority and data.priority in VALID_PRIORITIES:
+        ticket.priority = data.priority
+
+    # Status transition with validation and history recording
+    if data.status is not None:
+        new_status = data.status
+        if new_status not in VALID_STATUSES:
             return JSONResponse(content={
-                "code": 404,
+                "code": 400,
                 "data": {},
-                "msg": "ticket not found"
+                "msg": f"invalid status '{new_status}', allowed: {VALID_STATUSES}"
             })
-        
-        # 更新字段
-        if "title" in data and data["title"]:
-            ticket.title = data["title"]
-        
-        if "description" in data:
-            ticket.description = data["description"]
-        
-        if "category" in data:
-            ticket.category = data["category"]
-        
-        if "priority" in data:
-            # 验证优先级值
-            if data["priority"] in VALID_PRIORITIES:
-                ticket.priority = data["priority"]
-        
-        if "status" in data:
-            # 验证状态值
-            if data["status"] in VALID_STATUSES:
-                ticket.status = data["status"]
-        
-        await db.commit()
-        await db.refresh(ticket)
-        
-        # 加载用户信息
-        stmt = select(Ticket).where(Ticket.id == ticket.id).options(selectinload(Ticket.user))
-        result = await db.execute(stmt)
-        ticket = result.scalar_one()
-        
-        # 返回更新后的工单详情
-        ticket_data = {
-            "id": ticket.id,
-            "title": ticket.title,
-            "description": ticket.description or "",
-            "category": ticket.category or "",
-            "priority": ticket.priority,
-            "status": ticket.status,
-            "created_at": ticket.created_at.strftime("%Y-%m-%d") if ticket.created_at else "",
-            "user": ticket.user.username if ticket.user else None
-        }
-        
-        return JSONResponse(content={
-            "code": 200,
-            "data": ticket_data,
-            "msg": "ticket updated successfully"
-        })
-    except Exception as e:
-        return JSONResponse(content={"code": 500, "data": {}, "msg": str(e)})
+        allowed = TICKET_TRANSITIONS.get(ticket.status, [])
+        if new_status != ticket.status and new_status not in allowed:
+            return JSONResponse(content={
+                "code": 422,
+                "data": {},
+                "msg": f"transition from '{ticket.status}' to '{new_status}' is not allowed"
+            })
+        if new_status != ticket.status:
+            history = TicketHistory(
+                ticket_id=ticket.id,
+                changed_by_id=current_user.id,
+                old_status=ticket.status,
+                new_status=new_status,
+                note=data.note or "",
+            )
+            db.add(history)
+            ticket.status = new_status
+
+    await db.commit()
+    await db.refresh(ticket)
+
+    stmt = select(Ticket).where(Ticket.id == ticket.id).options(selectinload(Ticket.user))
+    ticket = (await db.execute(stmt)).scalar_one()
+    return JSONResponse(content={
+        "code": 200,
+        "data": _ticket_to_dict(ticket),
+        "msg": "ticket updated successfully"
+    })
 
 
 @router.delete("/tickets/{id}")
 async def delete_ticket(
-        id: int, 
+        id: int,
+        db: AsyncSession = Depends(get_async_db),
+        current_user: User = Depends(get_current_user)
+):
+    """删除工单 - 只允许删除自己的工单"""
+    stmt = select(Ticket).where(Ticket.id == id, Ticket.user_id == current_user.id)
+    ticket = (await db.execute(stmt)).scalar_one_or_none()
+    if not ticket:
+        return JSONResponse(content={"code": 404, "data": {}, "msg": "ticket not found"})
+    await db.delete(ticket)
+    await db.commit()
+    return JSONResponse(content={"code": 200, "data": {}, "msg": "ticket deleted successfully"})
+
+
+@router.get("/tickets/{id}/history")
+async def get_ticket_history(
+        id: int,
         db: AsyncSession = Depends(get_async_db),
         current_user: User = Depends(get_current_user)
 ):
     """
-    删除工单 - 只允许删除自己的工单
-    
-    参数:
-    - id: 工单ID
+    获取工单状态变更历史记录 - 只允许查看自己工单的历史
+
+    Returns a list of status change records for the given ticket.
     """
-    try:
-        # 查询工单是否存在且属于当前用户
-        stmt = select(Ticket).where(Ticket.id == id).where(Ticket.user_id == current_user.id)
-        result = await db.execute(stmt)
-        ticket = result.scalar_one_or_none()
-        
-        if not ticket:
-            return JSONResponse(content={
-                "code": 404,
-                "data": {},
-                "msg": "ticket not found"
-            })
-        
-        # 删除工单
-        await db.delete(ticket)
-        await db.commit()
-        
-        return JSONResponse(content={
-            "code": 200,
-            "data": {},
-            "msg": "ticket deleted successfully"
-        })
-    except Exception as e:
-        return JSONResponse(content={"code": 500, "data": {}, "msg": str(e)})
+    # Verify ticket ownership
+    stmt = select(Ticket).where(Ticket.id == id, Ticket.user_id == current_user.id)
+    ticket = (await db.execute(stmt)).scalar_one_or_none()
+    if not ticket:
+        return JSONResponse(content={"code": 404, "data": {}, "msg": "ticket not found"})
+
+    hist_stmt = (
+        select(TicketHistory)
+        .where(TicketHistory.ticket_id == id)
+        .options(selectinload(TicketHistory.changed_by))
+        .order_by(TicketHistory.changed_at.asc())
+    )
+    history_records = (await db.execute(hist_stmt)).scalars().all()
+
+    history_list = [
+        {
+            "id": h.id,
+            "old_status": h.old_status,
+            "new_status": h.new_status,
+            "note": h.note or "",
+            "changed_by": h.changed_by.username if h.changed_by else "",
+            "changed_at": h.changed_at.strftime("%Y-%m-%dT%H:%M:%SZ") if h.changed_at else "",
+        }
+        for h in history_records
+    ]
+
+    return JSONResponse(content={
+        "code": 200,
+        "data": {"ticket_id": id, "history": history_list},
+        "msg": "success"
+    })

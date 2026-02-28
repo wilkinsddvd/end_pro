@@ -141,3 +141,22 @@ async def get_current_user(
         )
     
     return user
+
+
+async def get_current_admin(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    FastAPI dependency to get the current authenticated admin user.
+
+    Wraps get_current_user and additionally enforces that the user has role="admin".
+
+    Raises:
+        HTTPException with 403 status if the user is not an admin
+    """
+    if getattr(current_user, "role", "user") != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail={"code": 403, "data": {}, "msg": "admin privileges required"}
+        )
+    return current_user
