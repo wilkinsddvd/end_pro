@@ -14,7 +14,6 @@ router = APIRouter()
 VALID_PRIORITIES = ["low", "medium", "high", "urgent"]
 VALID_STATUSES = ["open", "in_progress", "resolved", "closed"]
 
-
 @router.get("/tickets")
 async def list_tickets(
         page: int = Query(1, ge=1),
