@@ -1,9 +1,18 @@
 from fastapi import FastAPI, Request
 from api import posts, categories, tags, archive, siteinfo, menus, auth, interaction, tickets, quick_replies, statistics
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from db import engine, Base
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 生产环境应限制为前端域名
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 async def on_startup():
