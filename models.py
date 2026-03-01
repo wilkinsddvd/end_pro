@@ -68,8 +68,11 @@ class Ticket(Base):
     priority = Column(String(32), default="medium")  # 优先级：low, medium, high, urgent
     status = Column(String(32), default="open")  # 状态：open, in_progress, resolved, closed
     created_at = Column(Date, default=datetime.date.today)  # 创建时间
+    due_date = Column(Date, nullable=True)  # 截止日期
     user_id = Column(Integer, ForeignKey("user.id"))  # 创建者
-    user = relationship("User")
+    assignee_id = Column(Integer, ForeignKey("user.id"), nullable=True)  # 处理人
+    user = relationship("User", foreign_keys=[user_id])
+    assignee = relationship("User", foreign_keys=[assignee_id])
 
 class QuickReply(Base):
     """快速回复模型"""

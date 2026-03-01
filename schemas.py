@@ -74,6 +74,8 @@ class TicketCreate(BaseModel):
     description: Optional[str] = ""
     category: Optional[str] = ""
     priority: Optional[str] = "medium"  # low, medium, high, urgent
+    due_date: Optional[str] = None       # 截止日期，格式 YYYY-MM-DD
+    assignee_id: Optional[int] = None    # 处理人 ID
 
 class TicketOut(BaseModel):
     """工单详情输出模型"""
@@ -85,6 +87,10 @@ class TicketOut(BaseModel):
     status: str
     created_at: str
     user: Optional[str] = None
+    due_date: Optional[str] = None       # 截止日期，格式 YYYY-MM-DD
+    assignee: Optional[str] = None       # 处理人用户名
+    assignee_id: Optional[int] = None    # 处理人 ID
+    is_overdue: Optional[bool] = False   # 是否逾期标记
 
 class TicketListOut(BaseModel):
     """工单列表输出模型"""
