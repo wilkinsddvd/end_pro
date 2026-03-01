@@ -7,6 +7,7 @@ from db import get_async_db
 from typing import Optional
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import selectinload
+import datetime
 
 router = APIRouter()
 
@@ -37,7 +38,7 @@ async def list_tickets(
     """
     try:
         # 构造动态筛选条件
-        stmt = select(Ticket).options(selectinload(Ticket.user))
+        stmt = select(Ticket).options(selectinload(Ticket.user), selectinload(Ticket.assignee))
         
         if search:
             stmt = stmt.where(
@@ -88,7 +89,15 @@ async def list_tickets(
                 "priority": ticket.priority,
                 "status": ticket.status,
                 "created_at": ticket.created_at.strftime("%Y-%m-%d") if ticket.created_at else "",
-                "user": ticket.user.username if ticket.user else None
+                "user": ticket.user.username if ticket.user else None,
+                "due_date": ticket.due_date.strftime("%Y-%m-%d") if ticket.due_date else None,
+                "assignee_id": ticket.assignee_id,
+                "assignee": ticket.assignee.username if ticket.assignee else None,
+                "is_overdue": (
+                    ticket.due_date is not None
+                    and ticket.status not in ("resolved", "closed")
+                    and ticket.due_date < datetime.date.today()
+                ),
             })
         
         return JSONResponse(content={
@@ -133,10 +142,20 @@ async def create_ticket(
         description = data.get("description", "")
         category = data.get("category", "")
         priority = data.get("priority", "medium")
+        due_date_str = data.get("due_date")
+        assignee_id = data.get("assignee_id")
         
         # 验证优先级值
         if priority not in VALID_PRIORITIES:
             priority = "medium"
+        
+        # 解析截止日期
+        due_date = None
+        if due_date_str:
+            try:
+                due_date = datetime.date.fromisoformat(due_date_str)
+            except ValueError:
+                pass
         
         # TODO: 从认证信息中获取实际用户ID，当前使用默认值用于演示
         DEFAULT_USER_ID = 1  # 简化演示使用的默认用户ID
@@ -148,7 +167,9 @@ async def create_ticket(
             category=category,
             priority=priority,
             status="open",  # 新建工单默认为 open 状态
-            user_id=DEFAULT_USER_ID
+            user_id=DEFAULT_USER_ID,
+            due_date=due_date,
+            assignee_id=assignee_id
         )
         
         db.add(ticket)
@@ -156,7 +177,7 @@ async def create_ticket(
         await db.refresh(ticket)
         
         # 加载用户信息
-        stmt = select(Ticket).where(Ticket.id == ticket.id).options(selectinload(Ticket.user))
+        stmt = select(Ticket).where(Ticket.id == ticket.id).options(selectinload(Ticket.user), selectinload(Ticket.assignee))
         result = await db.execute(stmt)
         ticket = result.scalar_one()
         
@@ -169,7 +190,15 @@ async def create_ticket(
             "priority": ticket.priority,
             "status": ticket.status,
             "created_at": ticket.created_at.strftime("%Y-%m-%d") if ticket.created_at else "",
-            "user": ticket.user.username if ticket.user else None
+            "user": ticket.user.username if ticket.user else None,
+            "due_date": ticket.due_date.strftime("%Y-%m-%d") if ticket.due_date else None,
+            "assignee_id": ticket.assignee_id,
+            "assignee": ticket.assignee.username if ticket.assignee else None,
+            "is_overdue": (
+                ticket.due_date is not None
+                and ticket.status not in ("resolved", "closed")
+                and ticket.due_date < datetime.date.today()
+            ),
         }
         
         return JSONResponse(content={
@@ -194,7 +223,7 @@ async def get_ticket(id: int, db: AsyncSession = Depends(get_async_db)):
         stmt = (
             select(Ticket)
             .where(Ticket.id == id)
-            .options(selectinload(Ticket.user))
+            .options(selectinload(Ticket.user), selectinload(Ticket.assignee))
         )
         result = await db.execute(stmt)
         ticket = result.scalar_one_or_none()
@@ -215,7 +244,15 @@ async def get_ticket(id: int, db: AsyncSession = Depends(get_async_db)):
             "priority": ticket.priority,
             "status": ticket.status,
             "created_at": ticket.created_at.strftime("%Y-%m-%d") if ticket.created_at else "",
-            "user": ticket.user.username if ticket.user else None
+            "user": ticket.user.username if ticket.user else None,
+            "due_date": ticket.due_date.strftime("%Y-%m-%d") if ticket.due_date else None,
+            "assignee_id": ticket.assignee_id,
+            "assignee": ticket.assignee.username if ticket.assignee else None,
+            "is_overdue": (
+                ticket.due_date is not None
+                and ticket.status not in ("resolved", "closed")
+                and ticket.due_date < datetime.date.today()
+            ),
         }
         
         return JSONResponse(content={
@@ -279,11 +316,23 @@ async def update_ticket(
             if data["status"] in VALID_STATUSES:
                 ticket.status = data["status"]
         
+        if "due_date" in data:
+            if data["due_date"]:
+                try:
+                    ticket.due_date = datetime.date.fromisoformat(data["due_date"])
+                except ValueError:
+                    pass
+            else:
+                ticket.due_date = None
+        
+        if "assignee_id" in data:
+            ticket.assignee_id = data["assignee_id"]
+        
         await db.commit()
         await db.refresh(ticket)
         
         # 加载用户信息
-        stmt = select(Ticket).where(Ticket.id == ticket.id).options(selectinload(Ticket.user))
+        stmt = select(Ticket).where(Ticket.id == ticket.id).options(selectinload(Ticket.user), selectinload(Ticket.assignee))
         result = await db.execute(stmt)
         ticket = result.scalar_one()
         
@@ -296,7 +345,15 @@ async def update_ticket(
             "priority": ticket.priority,
             "status": ticket.status,
             "created_at": ticket.created_at.strftime("%Y-%m-%d") if ticket.created_at else "",
-            "user": ticket.user.username if ticket.user else None
+            "user": ticket.user.username if ticket.user else None,
+            "due_date": ticket.due_date.strftime("%Y-%m-%d") if ticket.due_date else None,
+            "assignee_id": ticket.assignee_id,
+            "assignee": ticket.assignee.username if ticket.assignee else None,
+            "is_overdue": (
+                ticket.due_date is not None
+                and ticket.status not in ("resolved", "closed")
+                and ticket.due_date < datetime.date.today()
+            ),
         }
         
         return JSONResponse(content={

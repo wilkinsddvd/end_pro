@@ -27,13 +27,21 @@ async def get_overview(
             stmt = stmt.where(Ticket.created_at <= datetime.date.fromisoformat(endDate))
         result = await db.execute(stmt)
         row = result.one()
+        overdue_stmt = select(func.count(Ticket.id)).where(
+            Ticket.due_date.isnot(None),
+            Ticket.due_date < datetime.date.today(),
+            Ticket.status.notin_(["resolved", "closed"])
+        )
+        overdue_result = await db.execute(overdue_stmt)
+        overdue_count = overdue_result.scalar() or 0
         return JSONResponse(content={
             "code": 200,
             "data": {
                 "totalTickets": row.total or 0,
                 "newTickets": int(row.new_tickets or 0),
                 "completedTickets": int(row.completed or 0),
-                "avgResponseTime": 0
+                "avgResponseTime": 0,
+                "overdueTickets": overdue_count
             },
             "msg": "success"
         })
