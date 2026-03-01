@@ -7,6 +7,7 @@ from db import get_async_db
 from typing import Optional
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import selectinload
+from api.deps import get_current_user_id
 import datetime
 
 router = APIRouter()
@@ -117,7 +118,8 @@ async def list_tickets(
 @router.post("/tickets")
 async def create_ticket(
         data: dict = Body(...),
-        db: AsyncSession = Depends(get_async_db)
+        db: AsyncSession = Depends(get_async_db),
+        user_id: int = Depends(get_current_user_id)
 ):
     """
     创建新工单
@@ -157,17 +159,6 @@ async def create_ticket(
             except ValueError:
                 pass
         
-        # TODO: 从认证信息中获取实际用户ID，当前动态获取第一个有效用户用于演示
-        user_stmt = select(User.id).order_by(User.id).limit(1)
-        user_result = await db.execute(user_stmt)
-        default_user_id = user_result.scalar()
-        if default_user_id is None:
-            return JSONResponse(content={
-                "code": 400,
-                "data": {},
-                "msg": "no valid user found in database, please create a user first"
-            })
-        
         # 创建新工单
         ticket = Ticket(
             title=title,
@@ -175,7 +166,7 @@ async def create_ticket(
             category=category,
             priority=priority,
             status="open",  # 新建工单默认为 open 状态
-            user_id=default_user_id,
+            user_id=user_id,   # 来自 JWT
             due_date=due_date,
             assignee_id=assignee_id
         )
