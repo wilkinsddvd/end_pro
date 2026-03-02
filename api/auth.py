@@ -12,13 +12,15 @@ import re
 
 router = APIRouter()
 
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__truncate_error=False)
 
 def hash_pwd(password: str) -> str:
-    return _pwd_context.hash(password)
+    # bcrypt 最多有效处理 72 字节，截断后再哈希，避免版本兼容性报错
+    return _pwd_context.hash(password.encode("utf-8")[:72].decode("utf-8", errors="ignore"))
 
 def verify_pwd(plain: str, hashed: str) -> bool:
-    return _pwd_context.verify(plain, hashed)
+    truncated = plain.encode("utf-8")[:72].decode("utf-8", errors="ignore")
+    return _pwd_context.verify(truncated, hashed)
 
 @router.post("/login")
 @limiter.limit("5/minute")
@@ -27,6 +29,8 @@ async def login(request: Request, data: dict = Body(...), db: AsyncSession = Dep
     password = data.get("password")
     if not username or not password:
         return JSONResponse(content={"code": 400, "data": {}, "msg": "username/password required"})
+    if len(password) > 64:
+        return JSONResponse(content={"code": 400, "data": {}, "msg": "密码最长 64 位"})
     result = await db.execute(select(User).where(User.username == username))
     user = result.scalar()
     if not user or not verify_pwd(password, user.password_hash):
@@ -40,7 +44,8 @@ async def login(request: Request, data: dict = Body(...), db: AsyncSession = Dep
     })
 
 @router.post("/register")
-async def register(data: dict = Body(...), db: AsyncSession = Depends(get_async_db)):
+@limiter.limit("5/minute")
+async def register(request: Request, data: dict = Body(...), db: AsyncSession = Depends(get_async_db)):
     username = data.get("username")
     password = data.get("password")
     if not username or not password:
@@ -54,6 +59,8 @@ async def register(data: dict = Body(...), db: AsyncSession = Depends(get_async_
         return JSONResponse(content={"code": 400, "data": {}, "msg": "用户名只允许字母、数字和下划线"})
     if len(password) < 8:
         return JSONResponse(content={"code": 400, "data": {}, "msg": "密码长度至少 8 位"})
+    if len(password) > 64:
+        return JSONResponse(content={"code": 400, "data": {}, "msg": "密码最长 64 位"})
     if not (re.search(r'[A-Za-z]', password) and re.search(r'[0-9]', password)):
         return JSONResponse(content={"code": 400, "data": {}, "msg": "密码需同时包含字母和数字"})
     exists = await db.execute(select(User).where(User.username == username))

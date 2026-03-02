@@ -11,6 +11,9 @@ from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from api.deps import limiter
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -54,5 +57,5 @@ app.include_router(user.router, prefix="/api", tags=["User"])
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    # 避免500返回plain text
-    return JSONResponse(content={"code": 500, "data": {}, "msg": str(exc)})
+    logger.exception("Unhandled exception: %s", exc)
+    return JSONResponse(content={"code": 500, "data": {}, "msg": "服务器内部错误，请稍后重试"})
