@@ -90,6 +90,7 @@ async def list_tickets(
                 "priority": ticket.priority,
                 "status": ticket.status,
                 "created_at": ticket.created_at.strftime("%Y-%m-%d") if ticket.created_at else "",
+                "updated_at": ticket.updated_at.strftime("%Y-%m-%d") if ticket.updated_at else "",
                 "user": ticket.user.username if ticket.user else None,
                 "due_date": ticket.due_date.strftime("%Y-%m-%d") if ticket.due_date else None,
                 "assignee_id": ticket.assignee_id,
@@ -189,6 +190,7 @@ async def create_ticket(
             "priority": ticket.priority,
             "status": ticket.status,
             "created_at": ticket.created_at.strftime("%Y-%m-%d") if ticket.created_at else "",
+            "updated_at": ticket.updated_at.strftime("%Y-%m-%d") if ticket.updated_at else "",
             "user": ticket.user.username if ticket.user else None,
             "due_date": ticket.due_date.strftime("%Y-%m-%d") if ticket.due_date else None,
             "assignee_id": ticket.assignee_id,
@@ -243,6 +245,7 @@ async def get_ticket(id: int, db: AsyncSession = Depends(get_async_db)):
             "priority": ticket.priority,
             "status": ticket.status,
             "created_at": ticket.created_at.strftime("%Y-%m-%d") if ticket.created_at else "",
+            "updated_at": ticket.updated_at.strftime("%Y-%m-%d") if ticket.updated_at else "",
             "user": ticket.user.username if ticket.user else None,
             "due_date": ticket.due_date.strftime("%Y-%m-%d") if ticket.due_date else None,
             "assignee_id": ticket.assignee_id,
@@ -327,6 +330,8 @@ async def update_ticket(
         if "assignee_id" in data:
             ticket.assignee_id = data["assignee_id"]
         
+        ticket.updated_at = datetime.date.today()
+        
         await db.commit()
         await db.refresh(ticket)
         
@@ -344,6 +349,7 @@ async def update_ticket(
             "priority": ticket.priority,
             "status": ticket.status,
             "created_at": ticket.created_at.strftime("%Y-%m-%d") if ticket.created_at else "",
+            "updated_at": ticket.updated_at.strftime("%Y-%m-%d") if ticket.updated_at else "",
             "user": ticket.user.username if ticket.user else None,
             "due_date": ticket.due_date.strftime("%Y-%m-%d") if ticket.due_date else None,
             "assignee_id": ticket.assignee_id,

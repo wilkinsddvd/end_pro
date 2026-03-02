@@ -91,6 +91,7 @@ class TicketOut(BaseModel):
     assignee: Optional[str] = None       # 处理人用户名
     assignee_id: Optional[int] = None    # 处理人 ID
     is_overdue: Optional[bool] = False   # 是否逾期标记
+    updated_at: Optional[str] = None     # 更新时间
 
 class TicketListOut(BaseModel):
     """工单列表输出模型"""

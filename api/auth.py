@@ -56,6 +56,17 @@ async def logout():
     # JWT 无状态，前端丢弃 token 即可
     return JSONResponse(content={"code": 200, "data": {}, "msg": "logout success"})
 
+@router.get("/users")
+async def list_users(db: AsyncSession = Depends(get_async_db)):
+    """获取所有用户列表（供工单处理人下拉选择使用）"""
+    result = await db.execute(select(User))
+    users = result.scalars().all()
+    return JSONResponse(content={
+        "code": 200,
+        "data": {"users": [{"id": u.id, "username": u.username} for u in users]},
+        "msg": "success"
+    })
+
 @router.get("/self")
 async def get_self(
     db: AsyncSession = Depends(get_async_db),
