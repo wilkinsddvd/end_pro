@@ -1,26 +1,35 @@
-from fastapi import APIRouter, Depends, Body
+from fastapi import APIRouter, Depends, Body, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from models import User
 from db import get_async_db
 from fastapi.responses import JSONResponse
-from api.deps import create_access_token, get_current_user_id
-import hashlib
+from api.deps import create_access_token, get_current_user_id, _token_blacklist, limiter
+from passlib.context import CryptContext
+from typing import Optional
+from fastapi import Header
+import re
 
 router = APIRouter()
 
+_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 def hash_pwd(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+    return _pwd_context.hash(password)
+
+def verify_pwd(plain: str, hashed: str) -> bool:
+    return _pwd_context.verify(plain, hashed)
 
 @router.post("/login")
-async def login(data: dict = Body(...), db: AsyncSession = Depends(get_async_db)):
+@limiter.limit("5/minute")
+async def login(request: Request, data: dict = Body(...), db: AsyncSession = Depends(get_async_db)):
     username = data.get("username")
     password = data.get("password")
     if not username or not password:
         return JSONResponse(content={"code": 400, "data": {}, "msg": "username/password required"})
     result = await db.execute(select(User).where(User.username == username))
     user = result.scalar()
-    if not user or user.password_hash != hash_pwd(password):
+    if not user or not verify_pwd(password, user.password_hash):
         return JSONResponse(content={"code": 401, "data": {}, "msg": "invalid credentials"})
     # 生成 JWT Token，sub 存储 user_id（字符串形式）
     token = create_access_token({"sub": str(user.id), "username": user.username})
@@ -36,6 +45,17 @@ async def register(data: dict = Body(...), db: AsyncSession = Depends(get_async_
     password = data.get("password")
     if not username or not password:
         return JSONResponse(content={"code": 400, "data": {}, "msg": "username/password required"})
+    username = username.strip()
+    if not username:
+        return JSONResponse(content={"code": 400, "data": {}, "msg": "username/password required"})
+    if len(username) < 3 or len(username) > 32:
+        return JSONResponse(content={"code": 400, "data": {}, "msg": "用户名长度应在 3-32 字符之间"})
+    if not re.match(r'^[A-Za-z0-9_]+$', username):
+        return JSONResponse(content={"code": 400, "data": {}, "msg": "用户名只允许字母、数字和下划线"})
+    if len(password) < 8:
+        return JSONResponse(content={"code": 400, "data": {}, "msg": "密码长度至少 8 位"})
+    if not (re.search(r'[A-Za-z]', password) and re.search(r'[0-9]', password)):
+        return JSONResponse(content={"code": 400, "data": {}, "msg": "密码需同时包含字母和数字"})
     exists = await db.execute(select(User).where(User.username == username))
     if exists.scalar():
         return JSONResponse(content={"code": 409, "data": {}, "msg": "username was taken"})
@@ -52,12 +72,14 @@ async def register(data: dict = Body(...), db: AsyncSession = Depends(get_async_
     })
 
 @router.post("/logout")
-async def logout():
-    # JWT 无状态，前端丢弃 token 即可
+async def logout(authorization: Optional[str] = Header(None)):
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1]
+        _token_blacklist.add(token)
     return JSONResponse(content={"code": 200, "data": {}, "msg": "logout success"})
 
 @router.get("/users")
-async def list_users(db: AsyncSession = Depends(get_async_db)):
+async def list_users(db: AsyncSession = Depends(get_async_db), user_id: int = Depends(get_current_user_id)):
     """获取所有用户列表（供工单处理人下拉选择使用）"""
     result = await db.execute(select(User))
     users = result.scalars().all()
