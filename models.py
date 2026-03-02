@@ -33,6 +33,9 @@ class User(Base):
     show_email = Column(Integer, default=0)
     show_phone = Column(Integer, default=0)
     allow_search = Column(Integer, default=1)
+    # Role field: "user" (default) or "staff". If adding to an existing DB, run:
+    # ALTER TABLE user ADD COLUMN role VARCHAR(32) NOT NULL DEFAULT 'user';
+    role = Column(String(32), default="user", nullable=False)
 
 class Post(Base):
     __tablename__ = "post"
