@@ -15,6 +15,24 @@ class User(Base):
     username = Column(String(128), unique=True, index=True)
     password_hash = Column(String(256))
     created_at = Column(Date, default=datetime.date.today)
+    # Extended profile fields (nullable for backward compatibility)
+    # NOTE: SQLAlchemy create_all skips existing tables, so these columns won't be
+    # added automatically to an existing database.
+    # Dev: delete the DB file and restart. Prod: run ALTER TABLE manually.
+    nickname = Column(String(64), nullable=True)
+    email = Column(String(128), nullable=True)
+    phone = Column(String(32), nullable=True)
+    avatar = Column(String(512), nullable=True)
+    bio = Column(Text, nullable=True)
+    theme = Column(String(16), default="light")
+    language = Column(String(16), default="zh-CN")
+    email_notification = Column(Integer, default=1)
+    sms_notification = Column(Integer, default=0)
+    system_notification = Column(Integer, default=1)
+    profile_public = Column(Integer, default=1)
+    show_email = Column(Integer, default=0)
+    show_phone = Column(Integer, default=0)
+    allow_search = Column(Integer, default=1)
 
 class Post(Base):
     __tablename__ = "post"
