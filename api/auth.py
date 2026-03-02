@@ -95,12 +95,9 @@ async def get_self(
     user_id: int = Depends(get_current_user_id)
 ):
     """获取当前登录用户信息（需要 JWT 认证）"""
+    from api.user import _format_user
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar()
     if not user:
         return JSONResponse(content={"code": 404, "data": {}, "msg": "user not found"})
-    return JSONResponse(content={
-        "code": 200,
-        "data": {"id": user.id, "username": user.username},
-        "msg": "success"
-    })
+    return JSONResponse(content={"code": 200, "data": _format_user(user), "msg": "success"})

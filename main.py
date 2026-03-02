@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Request
-from api import posts, categories, tags, archive, siteinfo, menus, auth, interaction, tickets, quick_replies, statistics, ticket_replies
+from api import posts, categories, tags, archive, siteinfo, menus, auth, interaction, tickets, quick_replies, statistics, ticket_replies, user
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from db import engine, Base
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
@@ -27,6 +28,12 @@ async def on_startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+# 确保静态文件目录存在
+os.makedirs("static/avatars", exist_ok=True)
+
+# 挂载静态文件
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # 注册 API 路由
 app.include_router(posts.router, prefix="/api", tags=["Posts"])
 app.include_router(categories.router, prefix="/api", tags=["Categories"])
@@ -40,6 +47,7 @@ app.include_router(tickets.router, prefix="/api", tags=["Tickets"])
 app.include_router(quick_replies.router, prefix="/api", tags=["QuickReplies"])
 app.include_router(statistics.router, prefix="/api", tags=["Statistics"])
 app.include_router(ticket_replies.router, prefix="/api", tags=["TicketReplies"])
+app.include_router(user.router, prefix="/api", tags=["User"])
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
