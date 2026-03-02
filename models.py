@@ -74,6 +74,18 @@ class Ticket(Base):
     assignee_id = Column(Integer, ForeignKey("user.id"), nullable=True)  # 处理人
     user = relationship("User", foreign_keys=[user_id])
     assignee = relationship("User", foreign_keys=[assignee_id])
+    replies = relationship("TicketReply", back_populates="ticket", cascade="all, delete-orphan")
+
+class TicketReply(Base):
+    """工单回复模型"""
+    __tablename__ = "ticket_reply"
+    id = Column(Integer, primary_key=True)
+    ticket_id = Column(Integer, ForeignKey("ticket.id", ondelete="CASCADE"), nullable=False)  # 所属工单
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)  # 回复人
+    content = Column(Text, nullable=False)  # 回复内容
+    created_at = Column(Date, default=datetime.date.today)  # 创建时间
+    ticket = relationship("Ticket", back_populates="replies")
+    user = relationship("User", foreign_keys=[user_id])
 
 class QuickReply(Base):
     """快速回复模型"""
