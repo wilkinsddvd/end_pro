@@ -3,11 +3,26 @@ import jwt
 from jwt.exceptions import InvalidTokenError
 from typing import Optional
 import os
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
-# JWT 配置（生产环境应从环境变量读取）
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "changeme-super-secret-key-2026")
+# JWT 配置
+# 生成强密钥：python -c "import secrets; print(secrets.token_hex(64))"
+_jwt_secret = os.getenv("JWT_SECRET_KEY")
+if not _jwt_secret:
+    raise RuntimeError(
+        "JWT_SECRET_KEY environment variable is not set. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(64))\""
+    )
+SECRET_KEY: str = _jwt_secret
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24小时
+
+# 速率限制器（slowapi）
+limiter = Limiter(key_func=get_remote_address)
+
+# 内存 Token 黑名单（单实例部署；多实例可替换为 Redis）
+_token_blacklist: set = set()
 
 def create_access_token(data: dict) -> str:
     """生成 JWT Token"""
@@ -19,11 +34,13 @@ def create_access_token(data: dict) -> str:
 
 def decode_token(token: str) -> dict:
     """解码 JWT Token，返回 payload"""
+    if token in _token_blacklist:
+        raise HTTPException(status_code=401, detail="Token has been revoked")
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
     except InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return payload
 
 async def get_current_user_id(authorization: Optional[str] = Header(None)) -> int:
     """
