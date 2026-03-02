@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()  # 从项目根目录的 .env 文件加载环境变量
+
 from fastapi import FastAPI, Request
 from api import posts, categories, tags, archive, siteinfo, menus, auth, interaction, tickets, quick_replies, statistics, ticket_replies, user
 from fastapi.responses import JSONResponse
