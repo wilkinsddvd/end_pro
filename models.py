@@ -14,6 +14,15 @@ import datetime
 #       operator VARCHAR(128),
 #       changed_at DATE
 #   );
+# For existing DBs, also run:
+#   CREATE TABLE ticket_category (
+#       id INTEGER PRIMARY KEY AUTOINCREMENT,
+#       name VARCHAR(64) NOT NULL UNIQUE,
+#       description VARCHAR(256),
+#       sort_order INTEGER DEFAULT 0,
+#       is_active INTEGER DEFAULT 1,
+#       created_at DATE
+#   );
 
 post_tag = Table(
     'post_tag', Base.metadata,
@@ -132,6 +141,16 @@ class TicketReply(Base):
     created_at = Column(Date, default=datetime.date.today)  # 创建时间
     ticket = relationship("Ticket", back_populates="replies")
     user = relationship("User", foreign_keys=[user_id])
+
+class TicketCategory(Base):
+    """工单分类模型"""
+    __tablename__ = "ticket_category"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(64), unique=True, nullable=False)   # 分类名称
+    description = Column(String(256), nullable=True)         # 分类描述
+    sort_order = Column(Integer, default=0)                  # 排序权重（越小越靠前）
+    is_active = Column(Integer, default=1)                   # 是否启用：1 启用 / 0 禁用
+    created_at = Column(Date, default=datetime.date.today)
 
 class QuickReply(Base):
     """快速回复模型"""

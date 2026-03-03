@@ -58,3 +58,13 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> in
         return int(user_id)
     except (ValueError, TypeError):
         raise HTTPException(status_code=401, detail="Invalid user id in token")
+
+async def require_staff(user_id: int, db) -> "User":
+    """查询用户并校验 role == 'staff'，非 staff 抛出 HTTPException 403"""
+    from sqlalchemy.future import select
+    from models import User
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user or user.role != "staff":
+        raise HTTPException(status_code=403, detail="权限不足，仅管理员可操作")
+    return user

@@ -131,3 +131,32 @@ class QuickReplyListOut(BaseModel):
     size: int
     total: int
     quick_replies: List[QuickReplyOut]
+
+class SiteInfoUpdate(BaseModel):
+    """更新站点信息的请求模型"""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    icp: Optional[str] = None
+    footer: Optional[str] = None
+
+class TicketCategoryOut(BaseModel):
+    """工单分类输出模型"""
+    id: int
+    name: str
+    description: Optional[str] = None
+    sort_order: int = 0
+    is_active: int = 1
+    created_at: str
+
+class TicketCategoryCreate(BaseModel):
+    """创建工单分类的请求模型"""
+    name: str
+    description: Optional[str] = ""
+    sort_order: Optional[int] = 0
+
+class TicketCategoryUpdate(BaseModel):
+    """更新工单分类的请求模型"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[int] = None
