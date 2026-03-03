@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query, Depends, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from models import Ticket, User
+from models import Ticket, User, TicketHistory
 from schemas import TicketCreate, TicketOut
 from db import get_async_db
 from typing import Optional
@@ -270,76 +270,72 @@ async def get_ticket(id: int, db: AsyncSession = Depends(get_async_db)):
 async def update_ticket(
         id: int,
         data: dict = Body(...),
-        db: AsyncSession = Depends(get_async_db)
+        db: AsyncSession = Depends(get_async_db),
+        user_id: int = Depends(get_current_user_id)
 ):
     """
-    更新工单信息
-    
+    更新工单状态
+
     参数:
     - id: 工单ID
-    
+
     请求体:
-    - title: 工单标题（可选）
-    - description: 工单描述（可选）
-    - category: 工单分类（可选）
-    - priority: 优先级（可选）
-    - status: 状态（可选）
+    - status: 新状态（必填，仅允许变更状态）
     """
     try:
         # 查询工单是否存在
         stmt = select(Ticket).where(Ticket.id == id)
         result = await db.execute(stmt)
         ticket = result.scalar_one_or_none()
-        
+
         if not ticket:
             return JSONResponse(content={
                 "code": 404,
                 "data": {},
                 "msg": "ticket not found"
             })
-        
-        # 更新字段
-        if "title" in data and data["title"]:
-            ticket.title = data["title"]
-        
-        if "description" in data:
-            ticket.description = data["description"]
-        
-        if "category" in data:
-            ticket.category = data["category"]
-        
-        if "priority" in data:
-            # 验证优先级值
-            if data["priority"] in VALID_PRIORITIES:
-                ticket.priority = data["priority"]
-        
-        if "status" in data:
-            # 验证状态值
-            if data["status"] in VALID_STATUSES:
-                ticket.status = data["status"]
-        
-        if "due_date" in data:
-            if data["due_date"]:
-                try:
-                    ticket.due_date = datetime.date.fromisoformat(data["due_date"])
-                except ValueError:
-                    pass
-            else:
-                ticket.due_date = None
-        
-        if "assignee_id" in data:
-            ticket.assignee_id = data["assignee_id"]
-        
+
+        new_status = data.get("status")
+        if not new_status or new_status not in VALID_STATUSES:
+            return JSONResponse(content={
+                "code": 400,
+                "data": {},
+                "msg": "invalid or missing status"
+            })
+
+        if new_status == ticket.status:
+            return JSONResponse(content={
+                "code": 400,
+                "data": {},
+                "msg": "status has not changed"
+            })
+
+        old_status = ticket.status
+        ticket.status = new_status
         ticket.updated_at = datetime.date.today()
-        
+
+        # 查操作人用户名
+        user_result = await db.execute(select(User).where(User.id == user_id))
+        operator_user = user_result.scalar_one_or_none()
+        operator_name = operator_user.username if operator_user else None
+
+        # 写历史
+        history = TicketHistory(
+            ticket_id=ticket.id,
+            old_status=old_status,
+            new_status=new_status,
+            operator=operator_name,
+            changed_at=datetime.date.today()
+        )
+        db.add(history)
         await db.commit()
         await db.refresh(ticket)
-        
+
         # 加载用户信息
         stmt = select(Ticket).where(Ticket.id == ticket.id).options(selectinload(Ticket.user), selectinload(Ticket.assignee))
         result = await db.execute(stmt)
         ticket = result.scalar_one()
-        
+
         # 返回更新后的工单详情
         ticket_data = {
             "id": ticket.id,
@@ -360,7 +356,7 @@ async def update_ticket(
                 and ticket.due_date < datetime.date.today()
             ),
         }
-        
+
         return JSONResponse(content={
             "code": 200,
             "data": ticket_data,
@@ -370,35 +366,47 @@ async def update_ticket(
         return JSONResponse(content={"code": 500, "data": {}, "msg": str(e)})
 
 
-@router.delete("/tickets/{id}")
-async def delete_ticket(id: int, db: AsyncSession = Depends(get_async_db)):
+@router.get("/tickets/{id}/history")
+async def get_ticket_history(id: int, db: AsyncSession = Depends(get_async_db)):
     """
-    删除工单
-    
-    参数:
-    - id: 工单ID
+    获取工单状态变更历史列表
+    - 按 changed_at 升序返回所有历史记录
     """
     try:
-        # 查询工单是否存在
-        stmt = select(Ticket).where(Ticket.id == id)
-        result = await db.execute(stmt)
-        ticket = result.scalar_one_or_none()
-        
-        if not ticket:
+        # 验证工单存在
+        ticket_result = await db.execute(select(Ticket).where(Ticket.id == id))
+        if not ticket_result.scalar_one_or_none():
             return JSONResponse(content={
                 "code": 404,
                 "data": {},
                 "msg": "ticket not found"
             })
-        
-        # 删除工单
-        await db.delete(ticket)
-        await db.commit()
-        
+
+        stmt = (
+            select(TicketHistory)
+            .where(TicketHistory.ticket_id == id)
+            .order_by(TicketHistory.changed_at.asc(), TicketHistory.id.asc())
+        )
+        result = await db.execute(stmt)
+        histories = result.scalars().all()
+
         return JSONResponse(content={
             "code": 200,
-            "data": {},
-            "msg": "ticket deleted successfully"
+            "data": {
+                "history": [
+                    {
+                        "id": h.id,
+                        "ticket_id": h.ticket_id,
+                        "old_status": h.old_status,
+                        "new_status": h.new_status,
+                        "operator": h.operator,
+                        "changed_at": h.changed_at.strftime("%Y-%m-%d") if h.changed_at else ""
+                    }
+                    for h in histories
+                ],
+                "total": len(histories)
+            },
+            "msg": "success"
         })
     except Exception as e:
         return JSONResponse(content={"code": 500, "data": {}, "msg": str(e)})

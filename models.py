@@ -3,6 +3,18 @@ from sqlalchemy import Column, Integer, String, Text, Date, ForeignKey, Table
 from sqlalchemy.orm import relationship
 import datetime
 
+# Migration note: `create_all` will not add new tables to an existing database.
+# New DBs will have ticket_history created automatically.
+# For existing DBs, run:
+#   CREATE TABLE ticket_history (
+#       id INTEGER PRIMARY KEY AUTOINCREMENT,
+#       ticket_id INTEGER NOT NULL REFERENCES ticket(id),
+#       old_status VARCHAR(32) NOT NULL,
+#       new_status VARCHAR(32) NOT NULL,
+#       operator VARCHAR(128),
+#       changed_at DATE
+#   );
+
 post_tag = Table(
     'post_tag', Base.metadata,
     Column("post_id", Integer, ForeignKey("post.id")),
@@ -96,6 +108,19 @@ class Ticket(Base):
     user = relationship("User", foreign_keys=[user_id])
     assignee = relationship("User", foreign_keys=[assignee_id])
     replies = relationship("TicketReply", back_populates="ticket", cascade="all, delete-orphan")
+    history = relationship("TicketHistory", back_populates="ticket", order_by="TicketHistory.changed_at")
+
+class TicketHistory(Base):
+    """工单状态变更历史"""
+    __tablename__ = "ticket_history"
+    id = Column(Integer, primary_key=True)
+    ticket_id = Column(Integer, ForeignKey("ticket.id"), nullable=False)   # 所属工单
+    old_status = Column(String(32), nullable=False)   # 变更前状态
+    new_status = Column(String(32), nullable=False)   # 变更后状态
+    operator = Column(String(128), nullable=True)     # 操作人用户名（记录时快照）
+    changed_at = Column(Date, default=datetime.date.today)  # 变更日期
+
+    ticket = relationship("Ticket", back_populates="history")
 
 class TicketReply(Base):
     """工单回复模型"""

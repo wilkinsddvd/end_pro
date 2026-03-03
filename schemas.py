@@ -100,6 +100,15 @@ class TicketListOut(BaseModel):
     total: int
     tickets: List[TicketOut]
 
+class TicketHistoryOut(BaseModel):
+    """工单状态变更历史输出模型"""
+    id: int
+    ticket_id: int
+    old_status: str
+    new_status: str
+    operator: Optional[str] = None
+    changed_at: str
+
 # Quick Reply Schemas
 class QuickReplyCreate(BaseModel):
     """创建快速回复的请求模型"""
