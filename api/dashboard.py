@@ -46,12 +46,12 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_async_db)):
 
 @router.get("/trend")
 async def get_ticket_trend(
-        range: str = Query("week", regex="^(week|month)$"),
+        time_range: str = Query("week", alias="range", regex="^(week|month)$"),
         db: AsyncSession = Depends(get_async_db)
 ):
     try:
         today = datetime.date.today()
-        if range == "week":
+        if time_range == "week":
             days = 7
         else:
             days = 30
