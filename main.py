@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 load_dotenv()  # 从项目根目录的 .env 文件加载环境变量
 
 from fastapi import FastAPI, Request
-from api import posts, categories, tags, archive, siteinfo, menus, auth, interaction, tickets, quick_replies, statistics, ticket_replies, user, staff
+from api import posts, categories, tags, archive, siteinfo, menus, auth, interaction, tickets, quick_replies, statistics, ticket_replies, user, staff, dashboard
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -55,6 +55,7 @@ app.include_router(statistics.router, prefix="/api", tags=["Statistics"])
 app.include_router(ticket_replies.router, prefix="/api", tags=["TicketReplies"])
 app.include_router(user.router, prefix="/api", tags=["User"])
 app.include_router(staff.router, prefix="/api", tags=["Staff"])
+app.include_router(dashboard.router, prefix="/api", tags=["Dashboard"])
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
