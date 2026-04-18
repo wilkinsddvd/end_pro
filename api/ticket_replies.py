@@ -6,6 +6,7 @@ from models import TicketReply, Ticket, QuickReply
 from db import get_async_db
 from fastapi.responses import JSONResponse
 from api.deps import get_current_user_id
+import datetime
 
 router = APIRouter()
 
@@ -68,6 +69,10 @@ async def create_reply(
             content=content,
         )
         db.add(reply)
+
+        # 如果是该工单的首条回复，自动设置 first_response_at
+        if ticket.first_response_at is None:
+            ticket.first_response_at = datetime.datetime.now()
 
         # 如果传入 quick_reply_id，则递增 use_count
         quick_reply_id = data.get("quick_reply_id")
