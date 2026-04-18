@@ -1,5 +1,5 @@
 from db import Base
-from sqlalchemy import Column, Integer, String, Text, Date, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, Text, Date, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship
 import datetime
 
@@ -14,6 +14,8 @@ import datetime
 #       operator VARCHAR(128),
 #       changed_at DATE
 #   );
+#
+# To add response-time columns to an existing DB, run scripts/migration.sql
 
 post_tag = Table(
     'post_tag', Base.metadata,
@@ -105,6 +107,8 @@ class Ticket(Base):
     due_date = Column(Date, nullable=True)  # 截止日期
     user_id = Column(Integer, ForeignKey("user.id"))  # 创建者
     assignee_id = Column(Integer, ForeignKey("user.id"), nullable=True)  # 处理人
+    first_response_at = Column(DateTime, nullable=True)  # 首次回复时间
+    completed_at = Column(DateTime, nullable=True)  # 完成时间
     user = relationship("User", foreign_keys=[user_id])
     assignee = relationship("User", foreign_keys=[assignee_id])
     replies = relationship("TicketReply", back_populates="ticket", cascade="all, delete-orphan")

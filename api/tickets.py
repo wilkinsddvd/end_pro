@@ -314,6 +314,10 @@ async def update_ticket(
         ticket.status = new_status
         ticket.updated_at = datetime.date.today()
 
+        # 当工单状态变为 resolved 或 closed 时，自动设置 completed_at
+        if new_status in ("resolved", "closed") and ticket.completed_at is None:
+            ticket.completed_at = datetime.datetime.now()
+
         # 查操作人用户名
         user_result = await db.execute(select(User).where(User.id == user_id))
         operator_user = user_result.scalar_one_or_none()
