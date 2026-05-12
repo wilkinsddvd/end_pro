@@ -1,5 +1,20 @@
 # 端到端功能测试说明文档
 
+## Pytest + Selenium（公网地址）快速运行
+
+在 `end_pro` 目录执行以下命令：
+
+```bash
+pip install -r requirements-test.txt
+pytest
+```
+
+测试会访问 `https://wanglinhao.cn/`，并在仓库根目录自动生成 HTML 报告：
+
+- `end_pro/test_report/report.html`
+
+---
+
 ## 项目简介
 
 本测试脚本 (`test_system_e2e.py`) 使用 **Selenium 4.x + Microsoft Edge WebDriver** 对工单管理系统进行端到端 (E2E) 综合功能测试，覆盖认证、工单管理、快速回复、数据统计和个性化设置等核心模块。
